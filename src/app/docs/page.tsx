@@ -175,7 +175,7 @@ RESEND_API_KEY=re_...`;
                                     <h2 className="text-2xl font-bold text-foreground">Getting Started</h2>
                                 </div>
                                 <p className="text-muted-foreground">
-                                    Follow these steps to get PropelKit running on your local machine.
+                                    Follow these steps to get Acme SaaS running on your local machine.
                                 </p>
 
                                 <div className="space-y-6">
@@ -220,7 +220,7 @@ RESEND_API_KEY=re_...`;
                                     <h2 className="text-2xl font-bold text-foreground">Database Setup</h2>
                                 </div>
                                 <p className="text-muted-foreground">
-                                    PropelKit uses Supabase. Run this SQL in your <strong>Supabase SQL Editor</strong> to create the required tables.
+                                    Acme SaaS uses Supabase. Run this SQL in your <strong>Supabase SQL Editor</strong> to create the required tables.
                                 </p>
 
                                 <CodeBlock language="sql" code={sqlCode} filename="schema.sql" />
@@ -268,8 +268,8 @@ RESEND_API_KEY=re_...`;
 
                             {/* Footer for Docs */}
                             <footer className="pt-12 mt-12 border-t border-border/50 text-sm text-muted-foreground flex justify-between">
-                                <p>&copy; {new Date().getFullYear()} PropelKit</p>
-                                <a href="mailto:support@propelkit.com" className="hover:text-primary transition-colors">Contact Support</a>
+                                <p>&copy; {new Date().getFullYear()} Acme SaaS</p>
+                                <a href="mailto:support@yourdomain.com" className="hover:text-primary transition-colors">Contact Support</a>
                             </footer>
 
                         </div>

@@ -11,11 +11,11 @@ export default function RefundPolicy() {
                 <h1 className="text-4xl font-bold mb-8 text-foreground">Refund Policy</h1>
                 <div className="prose prose-lg dark:prose-invert max-w-none">
                     <p className="text-lg text-muted-foreground leading-relaxed mb-6">
-                        PropelKit offers non-tangible, irrevocable digital goods. Therefore, <strong className="text-foreground">we do not provide refunds</strong> after the product is purchased, which you acknowledge prior to purchasing any product on the website. Please make sure that you've carefully read the service description before making a purchase.
+                        Acme SaaS offers non-tangible, irrevocable digital goods. Therefore, <strong className="text-foreground">we do not provide refunds</strong> after the product is purchased, which you acknowledge prior to purchasing any product on the website. Please make sure that you've carefully read the service description before making a purchase.
                     </p>
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-foreground">Exception</h2>
                     <p className="text-lg text-muted-foreground leading-relaxed">
-                        If you are unable to download the product due to a technical error on our end, please contact support for assistance at <a href="mailto:support@propelkit.dev" className="text-primary hover:underline">support@propelkit.dev</a>.
+                        If you are unable to download the product due to a technical error on our end, please contact support for assistance at <a href="mailto:support@yourdomain.com" className="text-primary hover:underline">support@yourdomain.com</a>.
                     </p>
                     <p className="text-sm text-muted-foreground mt-8">Last updated: December 2024</p>
                 </div>

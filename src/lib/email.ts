@@ -14,9 +14,14 @@ export async function sendInvoiceEmail(to: string, pdfBuffer: Buffer, invoiceId:
     // This logic redirects all customer emails to YOU for testing purposes.
     // set FORCE_TO_ME = false later when you have verified your domain.
     const FORCE_TO_ME = true;
-    const MY_EMAIL = "tanishqagarwalswm@gmail.com"; // Your registered Resend email
+    const MY_EMAIL = "support@yourdomain.com"; // Your registered Resend email
 
     const recipient = FORCE_TO_ME ? MY_EMAIL : to;
+
+    // PRODUCTION CHECK
+    if (process.env.NODE_ENV === 'production' && to.includes('@resend.dev')) {
+        throw new Error('CRITICAL: Update email sender in lib/email.ts for production!');
+    }
     // ------------------------------------
 
     try {

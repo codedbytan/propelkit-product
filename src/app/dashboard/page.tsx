@@ -84,7 +84,7 @@ export default function Dashboard() {
                                 <div className="space-y-1">
                                     <h3 className="font-semibold text-lg">Source Code Locked</h3>
                                     <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                                        You need an active license to download the PropelKit source code.
+                                        You need an active license to download the Acme SaaS source code.
                                     </p>
                                 </div>
                                 <Button

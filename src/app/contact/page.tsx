@@ -14,7 +14,7 @@ export default function Contact() {
                         <Mail className="w-6 h-6 text-primary mt-1" />
                         <div>
                             <p className="font-semibold text-foreground">Support Email</p>
-                            <p className="text-muted-foreground">support@propelkit.dev</p>
+                            <p className="text-muted-foreground">support@yourdomain.com</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-4 p-4 bg-card border border-border rounded-xl">
@@ -28,7 +28,7 @@ export default function Contact() {
                         <MapPin className="w-6 h-6 text-primary mt-1" />
                         <div>
                             <p className="font-semibold text-foreground">Registered Address</p>
-                            <p className="text-muted-foreground">Jaipur, Rajasthan, India</p>
+                            <p className="text-muted-foreground">Your City, State, India</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-4 p-4 bg-card border border-border rounded-xl">

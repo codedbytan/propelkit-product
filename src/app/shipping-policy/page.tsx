@@ -12,7 +12,7 @@ export default function ShippingPolicy() {
                 <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-3">Delivery Method</h2>
-                        <p>PropelKit is a purely <strong className="text-foreground">digital product</strong> (software code). We do not ship any physical items to your address.</p>
+                        <p>Acme SaaS is a purely <strong className="text-foreground">digital product</strong> (software code). We do not ship any physical items to your address.</p>
                         <p className="mt-2">Upon successful payment, you will receive:</p>
                         <ul className="list-disc list-inside mt-2 space-y-1">
                             <li>An immediate confirmation email.</li>
@@ -33,12 +33,12 @@ export default function ShippingPolicy() {
 
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-3">International Orders</h2>
-                        <p>As a digital download, PropelKit is available globally. No customs duties or shipping fees apply.</p>
+                        <p>As a digital download, Acme SaaS is available globally. No customs duties or shipping fees apply.</p>
                     </section>
 
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-3">Contact</h2>
-                        <p>For any delivery-related queries, please email us at <a href="mailto:support@propelkit.dev" className="text-primary hover:underline">support@propelkit.dev</a> or call us at <strong className="text-foreground">+91 63764 23215</strong>.</p>
+                        <p>For any delivery-related queries, please email us at <a href="mailto:support@yourdomain.com" className="text-primary hover:underline">support@yourdomain.com</a> or call us at <strong className="text-foreground">+91 63764 23215</strong>.</p>
                     </section>
 
                     <p className="text-sm mt-8">Last updated: December 2024</p>

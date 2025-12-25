@@ -70,7 +70,7 @@ export function LicenseCard() {
             <div className="relative z-10 flex flex-col h-full justify-between gap-6">
                 <div className="flex items-start justify-between">
                     <div>
-                        <p className="text-sm font-bold opacity-70 uppercase tracking-wide">PropelKit License</p>
+                        <p className="text-sm font-bold opacity-70 uppercase tracking-wide">Acme SaaS License</p>
                         <h3 className="text-3xl font-extrabold mt-1 tracking-tight">
                             {isActive ? planName : "No Active Plan"}
                         </h3>

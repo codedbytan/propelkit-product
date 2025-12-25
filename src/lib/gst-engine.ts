@@ -1,7 +1,11 @@
 /**
- * 🇮🇳 ENTERPRISE GST ENGINE
- * Handles: B2B/B2C, SEZ (LUT/Payment), Exports, RCM, GSTIN Validation, Place of Supply
- * Author: IndicSaaS
+ * 💡 GST ENGINE - CUSTOMIZE THIS
+ * 
+ * Update these values in your API routes:
+ * - sellerStateCode: Your business state (e.g., "27" for Maharashtra)
+ * - sellerGSTIN: Your GST registration number
+ * 
+ * State codes can be found in the STATE_CODES object below.
  */
 
 // --- 1. CONSTANTS & CONFIGURATION ---

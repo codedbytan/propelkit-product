@@ -9,41 +9,42 @@ import {
   Code2
 } from "lucide-react";
 
+// 💡 CUSTOMIZE: Replace these with YOUR product's features
 const features = [
   {
     icon: <ShieldCheck className="w-6 h-6" />,
-    title: "Supabase Auth",
-    description: "Secure authentication with Magic Links, Google Login, and Protected Routes pre-configured.",
+    title: "Secure Authentication",
+    description: "Built-in user authentication with email, magic links, and social login support.",
     color: "text-green-500",
   },
   {
     icon: <CreditCard className="w-6 h-6" />,
-    title: "Razorpay Payments",
-    description: "Accept subscriptions and one-time payments. Webhooks and GST invoicing included.",
+    title: "Payment Processing",
+    description: "Accept payments seamlessly with integrated payment gateway and automated invoicing.",
     color: "text-blue-500",
   },
   {
     icon: <Database className="w-6 h-6" />,
-    title: "PostgreSQL Database",
-    description: "Scalable database schema with Prisma ORM. Ready for thousands of users.",
+    title: "Scalable Database",
+    description: "PostgreSQL database with real-time capabilities and automatic backups.",
     color: "text-emerald-500",
   },
   {
     icon: <Mail className="w-6 h-6" />,
-    title: "Transactional Emails",
-    description: "Send welcome emails and magic links using Resend. Beautiful HTML templates included.",
+    title: "Email Notifications",
+    description: "Transactional emails for signups, receipts, and important user notifications.",
     color: "text-purple-500",
   },
   {
     icon: <LayoutDashboard className="w-6 h-6" />,
-    title: "User Dashboard",
-    description: "A complete customer portal where users can manage their subscription and invoices.",
+    title: "Admin Dashboard",
+    description: "Powerful admin panel to manage users, payments, and monitor your business.",
     color: "text-indigo-500",
   },
   {
     icon: <Smartphone className="w-6 h-6" />,
     title: "Mobile Responsive",
-    description: "Looks perfect on every device. Built with Tailwind CSS and shadcn/ui components.",
+    description: "Beautiful design that works perfectly on every device, from phones to desktops.",
     color: "text-pink-500",
   },
 ];
@@ -54,10 +55,10 @@ export function Features() {
       <div className="container px-4 md:px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">
-            Everything you need to <span className="text-gradient">ship fast</span>.
+            Everything you need to <span className="text-gradient">succeed</span>.
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            PropelKit comes with the essential features every SaaS needs, so you can focus on your unique business logic.
+            All the tools and features you need to launch and grow your business, right out of the box.
           </p>
         </div>
 
@@ -84,7 +85,7 @@ export function Features() {
         <div className="mt-16 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted text-sm text-muted-foreground">
             <Code2 className="w-4 h-4" />
-            <span>Plus 20+ UI Components from shadcn/ui pre-installed</span>
+            <span>Built with Next.js 14, TypeScript, and Tailwind CSS</span>
           </div>
         </div>
       </div>

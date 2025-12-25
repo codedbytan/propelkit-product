@@ -66,14 +66,14 @@ export default function Login() {
                         <div className="flex justify-center mb-4">
                             {/* Replace with your Logo if you have one */}
                             <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-glow">
-                                <span className="font-bold text-black text-lg">PK</span>
+                                <span className="font-bold text-black text-lg">AS</span>
                             </div>
                         </div>
                         <h2 className="text-2xl font-bold tracking-tight text-foreground">
                             Welcome back
                         </h2>
                         <p className="mt-2 text-sm text-muted-foreground">
-                            Sign in to access your PropelKit dashboard
+                            Sign in to access your Acme SaaS dashboard
                         </p>
                     </div>
 

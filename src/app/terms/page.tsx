@@ -12,10 +12,10 @@ export default function Terms() {
                 <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-3">1. License Grant</h2>
-                        <p>Upon purchase, PropelKit grants you a non-exclusive, non-transferable license to use the software.</p>
+                        <p>Upon purchase, Acme SaaS grants you a non-exclusive, non-transferable license to use the software.</p>
                         <ul className="list-disc list-inside mt-2 space-y-1">
                             <li><strong className="text-foreground">Starter License:</strong> Personal use only. You may use the code for your own projects but may not resell or redistribute the source code.</li>
-                            <li><strong className="text-foreground">Agency License:</strong> Commercial use permitted. You may use PropelKit for unlimited client projects. You may not resell or redistribute the source code as a standalone product.</li>
+                            <li><strong className="text-foreground">Agency License:</strong> Commercial use permitted. You may use Acme SaaS for unlimited client projects. You may not resell or redistribute the source code as a standalone product.</li>
                         </ul>
                     </section>
                     <section>
@@ -32,7 +32,7 @@ export default function Terms() {
                     </section>
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-3">5. Disclaimer</h2>
-                        <p>PropelKit is provided "as is" without warranties. We are not liable for any damages arising from use of the software.</p>
+                        <p>Acme SaaS is provided "as is" without warranties. We are not liable for any damages arising from use of the software.</p>
                     </section>
                     <p className="text-sm mt-8">Last updated: December 2024</p>
                 </div>

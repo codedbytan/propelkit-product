@@ -5,36 +5,37 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+// 💡 CUSTOMIZE: Replace these with YOUR product's FAQs
 const faqs = [
   {
-    question: "What tech stack does PropelKit use?",
+    question: "How does the payment work?",
     answer:
-      "PropelKit is built with Next.js 14 (App Router), TypeScript, Tailwind CSS, Supabase (for auth & database), Razorpay (for payments), and Resend (for emails). It's a modern, production-ready stack optimized for performance and developer experience.",
+      "We use Razorpay for secure payment processing. You can pay using credit/debit cards, UPI, or net banking. All payments are encrypted and secure.",
   },
   {
-    question: "Is Razorpay integration really pre-configured?",
+    question: "What happens after I purchase?",
     answer:
-      "Yes! PropelKit comes with complete Razorpay integration including checkout, webhooks, subscription management, and automatic GST invoice generation. Just add your Razorpay API keys and you're ready to accept payments.",
+      "You'll immediately receive access to your dashboard and a confirmation email with your invoice. You can start using all features right away.",
   },
   {
-    question: "What's the difference between Starter and Agency licenses?",
+    question: "Is there a refund policy?",
     answer:
-      "The Starter license is for personal use — you can use it to build your own SaaS products. The Agency license allows you to use PropelKit for unlimited client projects, making it perfect for freelancers and agencies.",
+      "Yes! We offer a 7-day money-back guarantee. If you're not satisfied for any reason, contact us within 7 days for a full refund.",
   },
   {
-    question: "Do I get lifetime updates?",
+    question: "Do I get updates?",
     answer:
-      "Absolutely! Once you purchase PropelKit, you get access to all future updates forever. We regularly add new features, improvements, and security patches — all included in your one-time purchase.",
+      "Yes! Your purchase includes all future updates and improvements. We regularly add new features and fix bugs based on user feedback.",
   },
   {
-    question: "Can I see the code before purchasing?",
+    question: "Is my data secure?",
     answer:
-      "We offer a live demo that showcases all the features. The full source code is available immediately after purchase. If you're not satisfied, just note that due to the digital nature of the product, we don't offer refunds once the code is delivered.",
+      "Absolutely. We use industry-standard encryption, secure servers, and follow best practices for data protection. Your information is never shared with third parties.",
   },
   {
-    question: "What kind of support do I get?",
+    question: "Do you offer support?",
     answer:
-      "All customers get access to our documentation and community Discord. Agency license holders get priority support with faster response times and access to a private Discord channel for direct assistance.",
+      "Yes! All customers get email support. Professional plan includes priority support with faster response times.",
   },
 ];
 

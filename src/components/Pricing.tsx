@@ -8,39 +8,39 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-// Define the Plans
+// 💡 CUSTOMIZE: Change these to YOUR pricing plans
 const plans = [
   {
     key: "starter_lifetime",
-    name: "Starter License",
-    description: "Perfect for solo founders shipping their first SaaS.",
-    price: 3999,
-    originalPrice: 7999,
+    name: "Starter",
+    description: "Perfect for individuals and small projects.",
+    price: 2999,
+    originalPrice: 4999,
     features: [
-      "Next.js 14 Boilerplate",
-      "Supabase Auth & Database",
-      "Razorpay Integration",
-      "Standard Components",
-      "Lifetime Updates",
+      "Full platform access",
+      "Email support",
+      "Basic analytics",
+      "1 team member",
+      "50 GB storage",
     ],
-    cta: "Get Starter",
+    cta: "Get Started",
     popular: false,
   },
   {
-    key: "agency_lifetime",
-    name: "Agency License",
-    description: "For serious founders & agencies building multiple apps.",
-    price: 9999,
-    originalPrice: 19999,
+    key: "pro_lifetime",
+    name: "Professional",
+    description: "For growing businesses and teams.",
+    price: 5999,
+    originalPrice: 9999,
     features: [
       "Everything in Starter",
-      "Commercial License",
-      "Unlimited Projects",
-      "Priority Support",
-      "1-hour Onboarding Call",
-      "Private Discord Access",
+      "Priority support",
+      "Advanced analytics",
+      "Up to 10 team members",
+      "500 GB storage",
+      "Custom branding",
     ],
-    cta: "Get Agency Bundle",
+    cta: "Go Pro",
     popular: true,
   },
 ];
@@ -82,7 +82,7 @@ export function Pricing() {
 
       if (!res.ok) {
         if (res.status === 401) {
-          toast.error("Please log in to purchase a license.");
+          toast.error("Please log in to continue.");
           router.push("/login");
           return;
         }
@@ -94,14 +94,12 @@ export function Pricing() {
         key: data.key,
         amount: data.amount,
         currency: data.currency,
-        name: "PropelKit",
-        description: "Lifetime License",
+        name: "Acme SaaS", // 💡 CUSTOMIZE: Your product name
+        description: "Lifetime Access",
         order_id: data.orderId,
 
-        // 👇 UPDATED HANDLER
         handler: async function (response: any) {
-          // Friendly Toast
-          toast.loading("Payment successful! Setting up your dashboard...");
+          toast.loading("Payment successful! Setting up your account...");
 
           try {
             const verifyRes = await fetch("/api/payment/verify", {
@@ -118,22 +116,19 @@ export function Pricing() {
             if (verifyRes.ok) {
               toast.dismiss();
               toast.success("Welcome aboard! Redirecting...");
-
-              // Force redirect using window.location to ensure it happens
               window.location.href = "/dashboard";
             } else {
               toast.dismiss();
-              toast.error("Payment received, but license generation failed. Please contact support.");
+              toast.error("Payment received, but verification failed. Please contact support.");
             }
           } catch (err) {
             toast.dismiss();
-            toast.error("Network error during verification. Please check your dashboard.");
-            // Even if verification UI fails, the backend might have succeeded, so let's try to go to dashboard
+            toast.error("Network error. Please check your dashboard.");
             router.push("/dashboard");
           }
         },
         theme: {
-          color: "#FACC15",
+          color: "#FACC15", // 💡 CUSTOMIZE: Your brand color
         },
         modal: {
           ondismiss: function () {
@@ -156,14 +151,14 @@ export function Pricing() {
     <section id="pricing" className="py-24 bg-background relative overflow-hidden">
       <div className="container px-4 md:px-6 relative z-10">
         <div className="text-center mb-16 space-y-4">
-          <Badge variant="secondary" className="mb-4 bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 border-yellow-500/20">
-            🔥 Launch Offer: 50% OFF
+          <Badge variant="secondary" className="mb-4 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+            🔥 Limited Time: 40% OFF
           </Badge>
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
-            Pay once, <span className="text-gradient">build forever</span>.
+            Simple, <span className="text-gradient">transparent pricing</span>.
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Secure your lifetime license today. No monthly fees, ever.
+            Pay once, use forever. No hidden fees, no monthly subscriptions.
           </p>
         </div>
 
@@ -179,7 +174,7 @@ export function Pricing() {
               {plan.popular && (
                 <div className="absolute -top-4 left-0 right-0 flex justify-center">
                   <Badge className="bg-primary text-primary-foreground hover:bg-primary px-4 py-1 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> Best Value
+                    <Sparkles className="w-3 h-3" /> Most Popular
                   </Badge>
                 </div>
               )}
@@ -228,7 +223,7 @@ export function Pricing() {
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-12">
-          Secure payments via Razorpay. 100% Money-back guarantee for 7 days.
+          Secure payments powered by Razorpay. 7-day money-back guarantee.
         </p>
       </div>
     </section>

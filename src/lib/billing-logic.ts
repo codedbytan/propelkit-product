@@ -32,10 +32,10 @@ export async function processSubscription(event: any) {
     if (error) throw error;
 
     // B. Generate Invoice & Email
-    const calculator = new GSTCalculator({ sellerStateCode: "08", sellerGSTIN: "08AAAAA0000A1Z5" });
+    const calculator = new GSTCalculator({ sellerStateCode: "08", sellerGSTIN: "YOUR_GSTIN_HERE" });
     const taxResult = calculator.calculate(
         { stateCode: entity.notes?.stateCode || "27", gstin: entity.notes?.gstin },
-        [{ description: "PropelKit License", sacCode: "9983", unitPrice: entity.amount / 100, quantity: 1 }]
+        [{ description: "Acme SaaS License", sacCode: "9983", unitPrice: entity.amount / 100, quantity: 1 }]
     );
 
     const invoiceData = {
@@ -44,7 +44,7 @@ export async function processSubscription(event: any) {
         customerName: email.split("@")[0],
         customerGSTIN: entity.notes?.gstin,
         taxResult: taxResult,
-        description: "PropelKit Lifetime License" // 👈 Added Missing Field
+        description: "Acme SaaS Lifetime License" // 👈 Added Missing Field
     };
 
     const pdfBuffer = await generateInvoicePDF(invoiceData);
@@ -66,7 +66,7 @@ export async function processPaymentFailure(event: any) {
             from: 'onboarding@resend.dev',
             to: email,
             subject: 'Payment Failed - IndicSaaS',
-            html: `<p>Hi,</p><p>We noticed your payment of ₹${entity.amount / 100} failed.</p><p><a href="https://propelkit.com/dashboard">Click here to retry</a></p>`
+            html: `<p>Hi,</p><p>We noticed your payment of ₹${entity.amount / 100} failed.</p><p><a href="https://yourdomain.com/dashboard">Click here to retry</a></p>`
         });
     }
 }

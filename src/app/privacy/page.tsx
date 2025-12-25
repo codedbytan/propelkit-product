@@ -12,7 +12,7 @@ export default function Privacy() {
                 <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-3">Information We Collect</h2>
-                        <p>When you purchase PropelKit, we collect:</p>
+                        <p>When you purchase Acme SaaS, we collect:</p>
                         <ul className="list-disc list-inside mt-2 space-y-1">
                             <li><strong className="text-foreground">Email address:</strong> Used for product delivery, updates, and support.</li>
                             <li><strong className="text-foreground">Payment information:</strong> Processed securely by Razorpay. We do not store card details.</li>
@@ -38,7 +38,7 @@ export default function Privacy() {
                     </section>
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-3">Contact</h2>
-                        <p>For privacy-related inquiries, contact us at <a href="mailto:support@propelkit.dev" className="text-primary hover:underline">support@propelkit.dev</a>.</p>
+                        <p>For privacy-related inquiries, contact us at <a href="mailto:support@yourdomain.com" className="text-primary hover:underline">support@yourdomain.com</a>.</p>
                     </section>
                     <p className="text-sm mt-8">Last updated: December 2024</p>
                 </div>

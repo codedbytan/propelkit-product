@@ -16,7 +16,7 @@ export function DashboardHeader({ user }: { user: any }) {
                         <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-glow">
                             PK
                         </div>
-                        <span className="font-bold text-lg tracking-tight hidden sm:block">PropelKit</span>
+                        <span className="font-bold text-lg tracking-tight hidden sm:block">Acme SaaS</span>
                     </div>
 
                     <div className="h-6 w-px bg-border/20 hidden sm:block" />

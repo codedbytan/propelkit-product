@@ -34,7 +34,7 @@ export default function OgGenerator() {
 
                     {/* Headline */}
                     <h1 className="text-7xl font-bold text-white tracking-tighter leading-[1.1] mb-6">
-                        PropelKit
+                        Acme SaaS
                     </h1>
 
                     {/* Sub-Headline */}
@@ -163,7 +163,7 @@ export default function OgGenerator() {
                 {/* Bottom Watermark */}
                 <div className="absolute bottom-6 left-16 flex items-center gap-2">
                     <span className="text-sm text-slate-600 font-medium tracking-wide">
-                        propelkit.com
+                        yourdomain.com
                     </span>
                 </div>
             </div>

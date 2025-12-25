@@ -30,8 +30,8 @@ export default function InvoicePage() {
                     <p className="text-sm text-gray-500">#{invoice.id}</p>
                 </div>
                 <div className="text-right">
-                    <h2 className="font-bold text-xl">PropelKit</h2>
-                    <p className="text-sm text-gray-500">Jaipur, Rajasthan</p>
+                    <h2 className="font-bold text-xl">Acme SaaS</h2>
+                    <p className="text-sm text-gray-500">Your City, State</p>
                 </div>
             </div>
 

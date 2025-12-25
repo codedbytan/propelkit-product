@@ -106,7 +106,7 @@ export default function PaymentSuccess() {
                     <p className="text-muted-foreground text-lg mb-8">
                         {verifying
                             ? "Please wait while we securely generate your license key..."
-                            : "Welcome to PropelKit. You now have lifetime access."}
+                            : "Welcome to Acme SaaS. You now have lifetime access."}
                     </p>
 
                     {/* Action Buttons */}

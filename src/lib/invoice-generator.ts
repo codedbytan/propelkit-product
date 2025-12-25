@@ -32,11 +32,11 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
         // --- 2. SELLER DETAILS ---
         doc
             .fontSize(12)
-            .text("IndicSaaS Pvt Ltd", 50, 80)
+            .text("Your Company Name", 50, 80)
             .fontSize(10)
             .text("123 Startup Hub, Tech Park")
-            .text("Jaipur, Rajasthan - 302022")
-            .text("GSTIN: 08AAAAA0000A1Z5")
+            .text("Your City, State - 302022")
+            .text("GSTIN: YOUR_GSTIN_HERE")
             .text("Email: billing@indicsaas.com");
 
         // --- 3. CUSTOMER DETAILS ---
