@@ -11,8 +11,10 @@ const razorpay = new Razorpay({
 
 // 🔒 Input validation schema
 const checkoutSchema = z.object({
+    // ✅ FIX: Use 'message' directly or 'invalid_type_error' depending on your Zod version.
+    // Based on your error log, it accepts { message: string }.
     planKey: z.enum(["starter_lifetime", "pro_lifetime"], {
-        errorMap: () => ({ message: "Invalid plan selected" })
+        message: "Invalid plan selected"
     })
 });
 
@@ -66,9 +68,7 @@ export async function POST(req: Request) {
             }
         });
 
-        // 5. Log order creation for audit
-        // (Optional: Insert into an orders table for tracking)
-
+        // 5. Return Order Details
         return NextResponse.json({
             orderId: order.id,
             amount: order.amount,
