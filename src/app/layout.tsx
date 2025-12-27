@@ -47,6 +47,14 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // 🔥 DEBUG: Log which env vars are missing
+  if (typeof window === 'undefined') {
+    console.log('🔍 Environment Check:');
+    console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅' : '❌');
+    console.log('Supabase Anon Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅' : '❌');
+    console.log('Razorpay Key:', process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ? '✅' : '❌');
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body>

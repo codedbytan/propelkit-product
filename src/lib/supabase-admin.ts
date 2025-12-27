@@ -1,3 +1,4 @@
+import 'server-only'; // 👈 This line protects your app
 import { createClient } from '@supabase/supabase-js';
 
 // This client uses the SERVICE_ROLE_KEY which bypasses all security rules.

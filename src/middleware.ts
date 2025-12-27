@@ -1,3 +1,4 @@
+// src/middleware.ts
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -33,15 +34,19 @@ export async function middleware(request: NextRequest) {
         }
     )
 
+    // 🔥 ADD THIS CHECK
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        console.error('❌ Missing Supabase environment variables!')
+        return response
+    }
+
     const {
         data: { user },
     } = await supabase.auth.getUser()
 
-    // 🔒 PROTECTED ROUTES RULE
     const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard')
         || request.nextUrl.pathname.startsWith('/admin')
 
-    // 🔓 EXCEPTION: Allow /admin-demo to be public
     const isPublicDemo = request.nextUrl.pathname === '/admin-demo';
 
     if (!user && isProtectedRoute && !isPublicDemo) {
@@ -55,6 +60,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|api).*)',
+        '/((?!_next/static|_next/image|favicon.ico|.*\\..*|api).*)',
     ],
 }
