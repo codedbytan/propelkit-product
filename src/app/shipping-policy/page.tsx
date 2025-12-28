@@ -38,7 +38,7 @@ export default function ShippingPolicy() {
 
                     <section>
                         <h2 className="text-2xl font-semibold text-foreground mb-3">Contact</h2>
-                        <p>For any delivery-related queries, please email us at <a href="mailto:support@yourdomain.com" className="text-primary hover:underline">support@yourdomain.com</a> or call us at <strong className="text-foreground">+91 63764 23215</strong>.</p>
+                        <p>For any delivery-related queries, please email us at <a href="mailto:support@yourdomain.com" className="text-primary hover:underline">support@yourdomain.com</a> or call us at <strong className="text-foreground">+91 XXXXX XXXXX</strong>.</p>
                     </section>
 
                     <p className="text-sm mt-8">Last updated: December 2024</p>

@@ -21,7 +21,7 @@ export default function Contact() {
                         <Phone className="w-6 h-6 text-primary mt-1" />
                         <div>
                             <p className="font-semibold text-foreground">Phone</p>
-                            <p className="text-muted-foreground">+91 63764 23215</p>
+                            <p className="text-muted-foreground">+91 XXXXX XXXXX</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-4 p-4 bg-card border border-border rounded-xl">

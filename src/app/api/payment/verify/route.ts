@@ -100,7 +100,7 @@ export async function POST(req: Request) {
 
         const gstCalculator = new GSTCalculator({
             sellerStateCode: "08", // 💡 CUSTOMIZE: Your state
-            sellerGSTIN: "08AAAAA0000A1Z5", // 💡 CUSTOMIZE: Your GSTIN
+            sellerGSTIN: "YOUR_GSTIN_HERE", // 💡 CUSTOMIZE: Your GSTIN
         });
 
         const taxResult = gstCalculator.calculate(

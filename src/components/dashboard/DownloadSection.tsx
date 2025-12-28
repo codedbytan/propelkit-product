@@ -21,7 +21,7 @@ export function DownloadSection() {
             // Trigger Download
             const link = document.createElement("a");
             link.href = data.url;
-            link.setAttribute("download", "propelkit-starter.zip");
+            link.setAttribute("download", "yourzipfile"); // Set desired file name
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);

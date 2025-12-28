@@ -181,7 +181,7 @@ RESEND_API_KEY=re_...`;
                                 <div className="space-y-6">
                                     <div>
                                         <h3 className="text-base font-semibold text-foreground mb-2">1. Clone the repository</h3>
-                                        <CodeBlock language="bash" code="git clone https://github.com/yourusername/propelkit.git" />
+                                        <CodeBlock language="bash" code="git clone https://github.com/yourusername/yourdirectry.git" />
                                     </div>
                                     <div>
                                         <h3 className="text-base font-semibold text-foreground mb-2">2. Install dependencies</h3>

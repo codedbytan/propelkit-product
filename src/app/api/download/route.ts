@@ -21,7 +21,7 @@ export async function POST() {
         // Only the Service Role can generate links for private buckets without RLS policies.
         const { data, error } = await supabaseAdmin.storage
             .from("builds")
-            .createSignedUrl("propelkit-starter.zip", 60); // Valid for 60 seconds
+            .createSignedUrl("yourzipfile", 60); // Valid for 60 seconds
 
         if (error) {
             console.error("Supabase Storage Error:", error.message);
