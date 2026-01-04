@@ -15,14 +15,70 @@ const PLANS = {
     starter_monthly: {
         amount: 99900,
         type: 'recurring',
-        razorpay_plan_id: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_MONTHLY
+        razorpay_plan_id: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_MONTHLY,
+        total_count: 120  // 10 years of monthly billing
     },
     pro_yearly: {
         amount: 2999900,
         type: 'recurring',
-        razorpay_plan_id: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_YEARLY
+        razorpay_plan_id: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_YEARLY,
+        total_count: 10  // 10 years of yearly billing
     },
 } as const;
+
+// Helper function to get or create organization
+async function getOrCreateOrganization(userId: string, userEmail: string): Promise<string> {
+    const { data: membership } = await supabaseAdmin
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .order('joined_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+    if (membership) {
+        return membership.organization_id;
+    }
+
+    // Create organization if doesn't exist
+    console.log(`Creating organization for user ${userId}`);
+
+    const userSlug = userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-')
+        + '-' + Math.random().toString(36).substring(2, 8);
+
+    const { data: newOrg, error: orgError } = await supabaseAdmin
+        .from('organizations')
+        .insert({
+            name: `${userEmail}'s Organization`,
+            slug: userSlug,
+            created_by: userId,
+            subscription_status: 'trial'
+        })
+        .select('id')
+        .single();
+
+    if (orgError) {
+        console.error('Failed to create organization:', orgError);
+        throw new Error('Failed to create organization');
+    }
+
+    const { error: memberError } = await supabaseAdmin
+        .from('organization_members')
+        .insert({
+            organization_id: newOrg.id,
+            user_id: userId,
+            role: 'owner'
+        });
+
+    if (memberError) {
+        console.error('Failed to add user as member:', memberError);
+        await supabaseAdmin.from('organizations').delete().eq('id', newOrg.id);
+        throw new Error('Failed to set up organization membership');
+    }
+
+    console.log(`✅ Created organization ${newOrg.id} for user ${userId}`);
+    return newOrg.id;
+}
 
 export async function POST(req: Request) {
     try {
@@ -41,6 +97,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Please log in to purchase." }, { status: 401 });
         }
 
+        if (!user.email) {
+            return NextResponse.json({ error: "User email not found." }, { status: 400 });
+        }
+
         const body = await req.json();
         const { planKey } = body;
 
@@ -50,21 +110,17 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid Plan" }, { status: 400 });
         }
 
-        // 3. Get or create user's default organization
-        const { data: membership } = await supabaseAdmin
-            .from('organization_members')
-            .select('organization_id, organizations(id, name)')
-            .eq('user_id', user.id)
-            .order('joined_at', { ascending: true })
-            .limit(1)
-            .single();
-
-        if (!membership) {
-            // This should never happen due to trigger, but handle gracefully
-            return NextResponse.json({ error: "Organization not found. Please contact support." }, { status: 500 });
+        // 3. Get or create user's organization
+        let organizationId: string;
+        try {
+            organizationId = await getOrCreateOrganization(user.id, user.email);
+        } catch (error) {
+            console.error('Organization error:', error);
+            return NextResponse.json(
+                { error: "Failed to set up your account. Please contact support." },
+                { status: 500 }
+            );
         }
-
-        const organizationId = membership.organization_id;
 
         // 4. Check if already has active subscription
         const { data: existingSub } = await supabaseAdmin
@@ -105,28 +161,44 @@ export async function POST(req: Request) {
             // Recurring subscription
             if (!plan.razorpay_plan_id) {
                 return NextResponse.json({
-                    error: "Recurring plan not configured"
+                    error: "Recurring plan not configured. Please check environment variables."
                 }, { status: 500 });
             }
 
-            const subscription = await razorpay.subscriptions.create({
-                plan_id: plan.razorpay_plan_id,
-                customer_notify: 1,
-                total_count: 0, // Infinite
-                notes: {
-                    userId: user.id,
-                    organizationId: organizationId,
-                    planKey: planKey,
-                }
-            });
+            try {
+                const subscription = await razorpay.subscriptions.create({
+                    plan_id: plan.razorpay_plan_id,
+                    customer_notify: 1,
+                    total_count: plan.total_count,  // Use the configured total_count (120 or 10)
+                    notes: {
+                        userId: user.id,
+                        organizationId: organizationId,
+                        planKey: planKey,
+                    }
+                });
 
-            return NextResponse.json({
-                subscriptionId: subscription.id,
-                amount: plan.amount,
-                currency: 'INR',
-                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-                type: 'subscription'
-            });
+                return NextResponse.json({
+                    subscriptionId: subscription.id,
+                    amount: plan.amount,
+                    currency: 'INR',
+                    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                    type: 'subscription'
+                });
+            } catch (razorpayError: any) {
+                console.error('Razorpay Error:', razorpayError);
+
+                // Provide helpful error messages
+                if (razorpayError.error?.description?.includes('does not exist') ||
+                    razorpayError.error?.description?.includes('not found')) {
+                    return NextResponse.json({
+                        error: "Subscription plan not found. Please verify the plan exists in your Razorpay dashboard."
+                    }, { status: 500 });
+                }
+
+                return NextResponse.json({
+                    error: `Payment gateway error: ${razorpayError.error?.description || razorpayError.message}`
+                }, { status: 500 });
+            }
         }
 
     } catch (error: any) {
