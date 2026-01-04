@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    // 🔥 ADD THIS CHECK
+    // Check environment variables
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
         console.error('❌ Missing Supabase environment variables!')
         return response
@@ -44,6 +44,7 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
+    // Protected routes
     const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard')
         || request.nextUrl.pathname.startsWith('/admin')
 
@@ -60,6 +61,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|.*\\..*|api).*)',
+        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
