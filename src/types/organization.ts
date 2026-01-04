@@ -2,7 +2,7 @@
 import { z } from 'zod';
 
 // ============================================
-// DATABASE TYPES (Generate from Supabase)
+// DATABASE TYPES
 // ============================================
 
 export type Organization = {
@@ -64,7 +64,7 @@ export const createOrganizationSchema = z.object({
 export const updateOrganizationSchema = z.object({
     name: z.string().min(2).max(100).trim().optional(),
     logo_url: z.string().url().optional().nullable(),
-    settings: z.record(z.any()).optional(),
+    settings: z.record(z.string(), z.any()).optional(), // ✅ FIXED
 });
 
 export const inviteMemberSchema = z.object({
@@ -84,10 +84,10 @@ export function generateSlug(name: string): string {
     return name
         .toLowerCase()
         .trim()
-        .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/-+/g, '-') // Remove duplicate hyphens
-        .slice(0, 50); // Max length
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 50);
 }
 
 export function canManageMembers(role: OrganizationMember['role']): boolean {

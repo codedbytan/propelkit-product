@@ -25,9 +25,8 @@ export async function POST(req: Request) {
 
         const event = JSON.parse(body);
         const eventId = event.id; // Razorpay's unique event ID
-        const entity = event.payload.payment.entity;
 
-        // 🔒 CRITICAL: Check if we've already processed this event
+        // 2. Idempotency Check (Prevent duplicate processing)
         const { data: existingEvent } = await supabaseAdmin
             .from("webhook_events")
             .select("id, status")
@@ -36,136 +35,198 @@ export async function POST(req: Request) {
 
         if (existingEvent) {
             if (existingEvent.status === "processed") {
-                console.log(`✅ Event ${eventId} already processed. Skipping.`);
                 return NextResponse.json({ received: true });
             }
-            // If status is 'failed', we might want to retry, but for now skip
-            console.log(`⚠️ Event ${eventId} exists with status: ${existingEvent.status}`);
-            return NextResponse.json({ received: true });
         }
 
-        // 2. Insert webhook event as 'pending'
-        const { error: eventInsertError } = await supabaseAdmin
-            .from("webhook_events")
-            .insert({
-                event_id: eventId,
-                event_type: event.event,
-                payload: event,
-                status: "pending"
-            });
+        // 3. Log the event as pending
+        await supabaseAdmin.from("webhook_events").insert({
+            event_id: eventId,
+            event_type: event.event,
+            payload: event,
+            status: "pending"
+        });
 
-        if (eventInsertError) {
-            console.error("Failed to insert webhook event:", eventInsertError);
-            return NextResponse.json({ error: "Database error" }, { status: 500 });
-        }
-
-        // 3. Process the event
+        // 4. Process the Event
         try {
+
+            // ==========================================
+            // CASE A: LIFETIME PURCHASE (One-Time)
+            // ==========================================
             if (event.event === "payment.captured") {
-                const userId = entity.notes?.userId;
-                const planKey = entity.notes?.planKey;
+                const entity = event.payload.payment.entity;
+                const notes = entity.notes;
 
-                if (!userId) {
-                    throw new Error("No userId in payment notes");
+                // 🛑 CRITICAL: Ignore Subscription Payments here
+                // Razorpay sends 'payment.captured' for subscriptions too.
+                // We MUST skip them to avoid creating duplicate licenses/invoices.
+                if (notes?.type === 'recurring' || entity.invoice_id) {
+                    console.log(`Skipping payment.captured for subscription (ID: ${entity.id})`);
+                    await markProcessed(eventId);
+                    return NextResponse.json({ status: "skipped_subscription_payment" });
                 }
 
-                // A. Create License
-                const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
-                const planName = planKey?.includes("agency") ? "AGENCY" : "STARTER";
-                const licenseKey = `ACME-${planName}-${new Date().getFullYear()}-${shortId}`;
+                const userId = notes?.userId;
+                const planKey = notes?.planKey;
 
-                await supabaseAdmin.from("licenses").insert({
-                    user_id: userId,
-                    plan_key: planKey || "starter_lifetime",
-                    license_key: licenseKey,
-                    status: "active"
-                });
-
-                // B. Calculate Tax & Create Invoice
-                const totalAmountPaid = entity.amount / 100;
-                const taxRate = 0.18;
-                const taxableAmount = totalAmountPaid / (1 + taxRate);
-
-                const gstCalculator = new GSTCalculator({
-                    sellerStateCode: "08",
-                    sellerGSTIN: "YOUR_GSTIN_HERE",
-                });
-
-                const taxResult = gstCalculator.calculate(
-                    { stateCode: "08" },
-                    [{
-                        description: `Acme SaaS ${planName} License`,
-                        sacCode: SAC_CODE_SAAS,
-                        unitPrice: taxableAmount,
-                        quantity: 1
-                    }]
-                );
-
-                await supabaseAdmin.from("invoices").insert({
-                    id: entity.id,
-                    user_id: userId,
-                    amount: entity.amount,
-                    status: "paid",
-                    currency: "INR"
-                });
-
-                // C. Send Email
-                const userEmail = entity.email;
-                if (userEmail && process.env.RESEND_API_KEY) {
-                    const pdfBuffer = await generateInvoicePDF({
-                        invoiceNumber: taxResult.invoiceNumberSuggestion,
-                        date: new Date(),
-                        customerName: userEmail.split("@")[0],
-                        customerAddress: "Not Provided",
-                        taxResult: taxResult,
-                        description: `Acme SaaS ${planName} Lifetime License`
+                if (userId) {
+                    // 1. Create Lifetime License
+                    const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
+                    await supabaseAdmin.from("licenses").insert({
+                        user_id: userId,
+                        plan_key: planKey || "lifetime",
+                        license_key: `LIC-${new Date().getFullYear()}-${shortId}`,
+                        status: "active"
                     });
-                    await sendInvoiceEmail(userEmail, pdfBuffer, taxResult.invoiceNumberSuggestion);
-                }
 
-                // D. Log to audit
-                await supabaseAdmin.from("audit_logs").insert({
-                    user_id: userId,
-                    action: "payment_captured",
-                    details: { payment_id: entity.id, amount: entity.amount, plan: planKey }
-                });
+                    // 2. Generate GST Invoice & Send Email
+                    // (Reusing your existing GST logic)
+                    await handleInvoiceGeneration(entity, userId, planKey || "Lifetime License");
+                }
             }
 
+            // ==========================================
+            // CASE B: RECURRING SUBSCRIPTION (New & Renewals)
+            // ==========================================
+            if (event.event === "subscription.charged") {
+                const subEntity = event.payload.subscription.entity;
+                const paymentEntity = event.payload.payment.entity;
+                const userId = subEntity.notes.userId;
+                const planKey = subEntity.notes.planKey;
+
+                // 1. Upsert Subscription Record
+                // This handles both the FIRST payment and every RENEWAL automatically
+                const { error: subError } = await supabaseAdmin
+                    .from("subscriptions")
+                    .upsert({
+                        razorpay_subscription_id: subEntity.id,
+                        user_id: userId,
+                        plan_id: planKey,
+                        status: 'active',
+                        current_period_start: new Date(subEntity.current_start * 1000).toISOString(),
+                        current_period_end: new Date(subEntity.current_end * 1000).toISOString(),
+                        type: 'recurring',
+                        // Optional: Link to organization if you have the ID in notes
+                        organization_id: subEntity.notes.organizationId || null
+                    }, { onConflict: 'razorpay_subscription_id' });
+
+                if (subError) throw subError;
+
+                // 2. Create Invoice Record for this renewal
+                await supabaseAdmin.from("invoices").insert({
+                    id: paymentEntity.id,
+                    user_id: userId,
+                    amount: paymentEntity.amount,
+                    status: "paid",
+                    currency: "INR",
+                    organization_id: subEntity.notes.organizationId || null
+                });
+
+                // 3. Update Organization Status (Grant Access)
+                if (subEntity.notes.organizationId) {
+                    await supabaseAdmin
+                        .from('organizations')
+                        .update({
+                            subscription_status: 'active',
+                            subscription_plan: planKey
+                        })
+                        .eq('id', subEntity.notes.organizationId);
+                }
+
+                // 4. Send Email (Optional: You can reuse handleInvoiceGeneration here too)
+            }
+
+            // ==========================================
+            // CASE C: SUBSCRIPTION STATUS CHANGES
+            // ==========================================
+            // Handle Cancelled, Halted (Failed 4x), and Paused
+            const statusChangeEvents = [
+                "subscription.cancelled",
+                "subscription.halted",
+                "subscription.paused"
+            ];
+
+            if (statusChangeEvents.includes(event.event)) {
+                const subEntity = event.payload.subscription.entity;
+                const newStatus = event.event.split('.')[1]; // cancelled, halted, or paused
+
+                // 1. Update Subscription Table
+                await supabaseAdmin
+                    .from("subscriptions")
+                    .update({
+                        status: newStatus,
+                        cancelled_at: newStatus === 'cancelled' ? new Date().toISOString() : null
+                    })
+                    .eq("razorpay_subscription_id", subEntity.id);
+
+                // 2. Revoke Organization Access
+                // We need to find the org linked to this subscription first
+                const { data: sub } = await supabaseAdmin
+                    .from('subscriptions')
+                    .select('organization_id')
+                    .eq('razorpay_subscription_id', subEntity.id)
+                    .single();
+
+                if (sub?.organization_id) {
+                    await supabaseAdmin
+                        .from('organizations')
+                        .update({ subscription_status: newStatus })
+                        .eq('id', sub.organization_id);
+                }
+            }
+
+            // Handle Resumed (Manually un-paused from Dashboard)
+            if (event.event === "subscription.resumed") {
+                const subEntity = event.payload.subscription.entity;
+
+                await supabaseAdmin
+                    .from("subscriptions")
+                    .update({ status: 'active' })
+                    .eq("razorpay_subscription_id", subEntity.id);
+
+                // Re-enable Organization Access
+                const { data: sub } = await supabaseAdmin
+                    .from('subscriptions')
+                    .select('organization_id')
+                    .eq('razorpay_subscription_id', subEntity.id)
+                    .single();
+
+                if (sub?.organization_id) {
+                    await supabaseAdmin
+                        .from('organizations')
+                        .update({ subscription_status: 'active' })
+                        .eq('id', sub.organization_id);
+                }
+            }
+
+            // ==========================================
+            // CASE D: PAYMENT FAILED
+            // ==========================================
             if (event.event === "payment.failed") {
+                const entity = event.payload.payment.entity;
                 const userEmail = entity.email;
+
                 if (userEmail && process.env.RESEND_API_KEY) {
-                    console.log(`⚠️ Payment Failed for ${userEmail}. Sending recovery email.`);
                     await resend.emails.send({
                         from: 'Acme SaaS <onboarding@resend.dev>',
                         to: userEmail,
-                        subject: 'Payment Failed - Acme SaaS',
+                        subject: 'Action Required: Payment Failed',
                         html: `
-                            <div style="font-family: sans-serif; color: #333;">
-                                <h2>Oops! Your payment couldn't be processed.</h2>
-                                <p>We noticed your transaction of <strong>₹${entity.amount / 100}</strong> failed.</p>
-                                <p>This usually happens due to bank timeouts or card limits. You can try again below:</p>
-                                <br/>
-                                <a href="https://yourdomain.com/#pricing" style="background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Retry Payment</a>
-                                <br/><br/>
-                                <p>If the money was deducted, it will be automatically refunded by your bank within 5-7 days.</p>
-                            </div>
+                            <p>We couldn't process your payment of ₹${entity.amount / 100}.</p>
+                            <p>Please check your card details or try a different payment method.</p>
                         `
                     });
                 }
             }
 
-            // 🔒 Mark event as processed
-            await supabaseAdmin
-                .from("webhook_events")
-                .update({ status: "processed", processed_at: new Date().toISOString() })
-                .eq("event_id", eventId);
-
+            // ✅ Mark event as successfully processed
+            await markProcessed(eventId);
             return NextResponse.json({ status: "ok" });
 
         } catch (processingError: any) {
             console.error("Error processing webhook:", processingError);
 
-            // Mark event as failed
+            // Mark as failed so we can debug later
             await supabaseAdmin
                 .from("webhook_events")
                 .update({ status: "failed" })
@@ -177,5 +238,62 @@ export async function POST(req: Request) {
     } catch (error: any) {
         console.error("Webhook Error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+// ==========================================
+// HELPERS
+// ==========================================
+
+async function markProcessed(eventId: string) {
+    await supabaseAdmin
+        .from("webhook_events")
+        .update({ status: "processed", processed_at: new Date().toISOString() })
+        .eq("event_id", eventId);
+}
+
+async function handleInvoiceGeneration(entity: any, userId: string, description: string) {
+    // Calculate Tax
+    const totalAmountPaid = entity.amount / 100;
+    const taxRate = 0.18;
+    const taxableAmount = totalAmountPaid / (1 + taxRate);
+
+    const gstCalculator = new GSTCalculator({
+        sellerStateCode: "08", // Rajasthan (Example)
+        sellerGSTIN: process.env.NEXT_PUBLIC_GSTIN || "YOUR_GSTIN",
+    });
+
+    const taxResult = gstCalculator.calculate(
+        { stateCode: "08" }, // Customer state (defaulting to local for now)
+        [{
+            description: description,
+            sacCode: SAC_CODE_SAAS,
+            unitPrice: taxableAmount,
+            quantity: 1
+        }]
+    );
+
+    // Save to DB
+    await supabaseAdmin.from("invoices").insert({
+        id: entity.id,
+        user_id: userId,
+        amount: entity.amount,
+        status: "paid",
+        currency: "INR"
+    });
+
+    // Send Email
+    const userEmail = entity.email;
+    if (userEmail && process.env.RESEND_API_KEY) {
+        const pdfBuffer = await generateInvoicePDF({
+            invoiceNumber: taxResult.invoiceNumberSuggestion,
+            date: new Date(),
+            customerName: userEmail.split("@")[0],
+            customerAddress: "Not Provided",
+            taxResult: taxResult,
+            description: description
+        });
+
+        await sendInvoiceEmail(userEmail, pdfBuffer, taxResult.invoiceNumberSuggestion);
     }
 }

@@ -8,13 +8,15 @@ import {
     updateOrganizationSchema,
     inviteMemberSchema,
     generateSlug,
-    OrganizationNotFoundError,
+    OrganizationNotFoundError, // ✅ Import the error classes
     InsufficientPermissionsError,
     DuplicateSlugError,
     InviteExpiredError,
+    OrganizationError, // ✅ Add this
 } from '@/types/organization';
-import { sendInviteEmail } from '@/lib/email';
-import { inngest } from '@/lib/inngest';
+import { sendInviteEmail, sendOrganizationWelcomeEmail } from '@/lib/email'; // ✅ Fixed import
+import { inngest } from '@/lib/inngest'; // ✅ Fixed import
+
 
 // ============================================
 // ORGANIZATION CRUD

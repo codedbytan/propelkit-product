@@ -1,57 +1,92 @@
+// src/lib/email.ts
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function sendInvoiceEmail(to: string, pdfBuffer: Buffer, invoiceId: string) {
-    console.log(`📧 PREPARING EMAIL for: ${to}`);
+// ... your existing sendInvoiceEmail function ...
 
-    if (!process.env.RESEND_API_KEY) {
-        throw new Error("❌ CRITICAL: RESEND_API_KEY is missing!");
-    }
+// ✅ ADD THIS NEW FUNCTION
+export async function sendInviteEmail(params: {
+  to: string;
+  organizationName: string;
+  inviteToken: string;
+  role: 'admin' | 'member';
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.error('❌ RESEND_API_KEY missing');
+    return;
+  }
 
-    // --- THE FIX: SAFE EMAIL HANDLING ---
-    // If you haven't verified a domain (e.g., indicsaas.com), you MUST send to your own email.
-    // This logic redirects all customer emails to YOU for testing purposes.
-    // set FORCE_TO_ME = false later when you have verified your domain.
-    const FORCE_TO_ME = true;
-    const MY_EMAIL = "support@yourdomain.com"; // Your registered Resend email
+  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${params.inviteToken}`;
 
-    const recipient = FORCE_TO_ME ? MY_EMAIL : to;
+  try {
+    await resend.emails.send({
+      from: 'onboarding@resend.dev', // Change after domain verification
+      to: params.to,
+      subject: `You've been invited to join ${params.organizationName}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1>You're invited!</h1>
+          <p>You've been invited to join <strong>${params.organizationName}</strong> as a <strong>${params.role}</strong>.</p>
+          
+          <div style="margin: 30px 0;">
+            <a href="${inviteUrl}" 
+               style="background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              Accept Invitation
+            </a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px;">
+            This invitation will expire in 7 days.<br/>
+            If the button doesn't work, copy this link: <br/>
+            <a href="${inviteUrl}">${inviteUrl}</a>
+          </p>
+        </div>
+      `,
+    });
 
-    // PRODUCTION CHECK
-    if (process.env.NODE_ENV === 'production' && to.includes('@resend.dev')) {
-        throw new Error('CRITICAL: Update email sender in lib/email.ts for production!');
-    }
-    // ------------------------------------
+    console.log('✅ Invite email sent to:', params.to);
+  } catch (error) {
+    console.error('❌ Failed to send invite email:', error);
+    throw error;
+  }
+}
 
-    try {
-        const data = await resend.emails.send({
-            from: 'onboarding@resend.dev', // Change this ONLY after verifying your domain
-            to: recipient,
-            subject: `Invoice #${invoiceId} - Payment Successful`,
-            html: `
-                <h1>Payment Successful! 🚀</h1>
-                <p><strong>Customer Email:</strong> ${to}</p> <p>Your license key is active.</p>
-                <p>Find your invoice attached.</p>
-            `,
-            attachments: [
-                {
-                    filename: `invoice-${invoiceId}.pdf`,
-                    content: pdfBuffer
-                }
-            ]
-        });
+// ✅ ADD THIS: Welcome email for new organizations
+export async function sendOrganizationWelcomeEmail(params: {
+  to: string;
+  organizationName: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.error('❌ RESEND_API_KEY missing');
+    return;
+  }
 
-        if (data.error) {
-            console.error("❌ Resend API Error:", data.error);
-            throw new Error(data.error.message);
-        }
-
-        console.log(`✅ EMAIL SENT SUCCESSFULLY! ID: ${data.data?.id}`);
-        return data;
-
-    } catch (error) {
-        console.error("❌ Error sending email:", error);
-        throw error;
-    }
+  try {
+    await resend.emails.send({
+      from: 'onboarding@resend.dev',
+      to: params.to,
+      subject: `Welcome to ${params.organizationName}!`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1>🎉 Welcome to Acme SaaS!</h1>
+          <p>Your organization <strong>${params.organizationName}</strong> is now set up.</p>
+          
+          <h2>Next Steps:</h2>
+          <ul>
+            <li>Invite team members</li>
+            <li>Configure your settings</li>
+            <li>Start building!</li>
+          </ul>
+          
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" 
+             style="background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 20px;">
+            Go to Dashboard
+          </a>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error('❌ Failed to send welcome email:', error);
+  }
 }

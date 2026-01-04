@@ -385,3 +385,127 @@ BEGIN
   RETURN org_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+
+
+-- ================================================
+-- STEP 1: Add organization_id to existing tables
+-- ================================================
+
+-- Add to subscriptions table
+ALTER TABLE public.subscriptions 
+  ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+-- Add to invoices table  
+ALTER TABLE public.invoices 
+  ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL;
+
+-- ================================================
+-- STEP 2: Migrate existing data (create personal orgs)
+-- ================================================
+
+-- Create personal organizations for existing users
+DO $$
+DECLARE
+  user_record RECORD;
+  new_org_id UUID;
+BEGIN
+  FOR user_record IN 
+    SELECT DISTINCT user_id FROM public.licenses WHERE user_id IS NOT NULL
+  LOOP
+    -- Get user email
+    DECLARE
+      user_email TEXT;
+    BEGIN
+      SELECT email INTO user_email FROM auth.users WHERE id = user_record.user_id;
+      
+      -- Create personal org
+      INSERT INTO public.organizations (name, slug, created_by, subscription_status)
+      VALUES (
+        user_email || '''s Organization',
+        LOWER(REPLACE(SPLIT_PART(user_email, '@', 1), '.', '-')) || '-' || SUBSTRING(gen_random_uuid()::text, 1, 6),
+        user_record.user_id,
+        'active'
+      )
+      RETURNING id INTO new_org_id;
+      
+      -- Add user as owner
+      INSERT INTO public.organization_members (organization_id, user_id, role)
+      VALUES (new_org_id, user_record.user_id, 'owner');
+      
+      -- Link licenses to org
+      UPDATE public.licenses 
+      SET organization_id = new_org_id 
+      WHERE user_id = user_record.user_id;
+      
+      -- Link invoices to org
+      UPDATE public.invoices 
+      SET organization_id = new_org_id 
+      WHERE user_id = user_record.user_id;
+      
+    END;
+  END LOOP;
+END $$;
+
+-- ================================================
+-- STEP 3: Now run the recurring subscription changes
+-- ================================================
+
+-- Modify subscriptions table
+ALTER TABLE public.subscriptions 
+  ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'lifetime',
+  ADD COLUMN IF NOT EXISTS razorpay_subscription_id TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS razorpay_plan_id TEXT,
+  ADD COLUMN IF NOT EXISTS current_period_start TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS cancel_at_period_end BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE;
+
+-- Drop old constraint if exists
+ALTER TABLE public.subscriptions 
+  DROP CONSTRAINT IF EXISTS subscriptions_status_check;
+
+-- Add new status constraint
+ALTER TABLE public.subscriptions 
+  ADD CONSTRAINT subscriptions_status_check 
+    CHECK (status IN ('active', 'cancelled', 'expired', 'past_due', 'trialing'));
+
+-- Add type constraint
+ALTER TABLE public.subscriptions 
+  ADD CONSTRAINT subscriptions_type_check 
+    CHECK (type IN ('lifetime', 'recurring'));
+
+-- Index for active subscriptions
+CREATE INDEX IF NOT EXISTS idx_subscriptions_active 
+  ON public.subscriptions(organization_id, status) 
+  WHERE status = 'active';
+
+-- Index for expiring subscriptions
+CREATE INDEX IF NOT EXISTS idx_subscriptions_expiring 
+  ON public.subscriptions(current_period_end) 
+  WHERE status = 'active' AND type = 'recurring';
+
+
+
+  -- The DB checks user_id = auth.uid() FIRST. Since your personal license is linked to your user ID, it will now be visible.
+-- This ensures that existing users with personal licenses can still access them without issues.
+-- 1. Remove the strict "Organization Only" policy
+DROP POLICY IF EXISTS "Users can view org licenses" ON public.licenses;
+DROP POLICY IF EXISTS "Users can view own license" ON public.licenses;
+
+-- 2. Create a "Hybrid" policy (Personal + Org)
+CREATE POLICY "View own or org licenses" 
+ON public.licenses FOR SELECT 
+USING ( 
+  -- Scenario A: It's a personal license (linked to your User ID)
+  user_id = auth.uid() 
+  
+  OR 
+  
+  -- Scenario B: It's an org license (linked to a team you are in)
+  organization_id IN (
+    SELECT organization_id FROM public.organization_members 
+    WHERE user_id = auth.uid()
+  )
+);
