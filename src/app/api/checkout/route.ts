@@ -1,100 +1,136 @@
 import { NextResponse } from "next/server";
-import { razorpay, SUBSCRIPTION_PLANS } from "@/lib/razorpay";
+import Razorpay from "razorpay";
 import { createClient } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+
+const razorpay = new Razorpay({
+    key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
+
+// Define plan details
+const PLANS = {
+    starter_lifetime: { amount: 299900, type: 'lifetime' },
+    pro_lifetime: { amount: 599900, type: 'lifetime' },
+    starter_monthly: {
+        amount: 99900,
+        type: 'recurring',
+        razorpay_plan_id: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_MONTHLY
+    },
+    pro_yearly: {
+        amount: 2999900,
+        type: 'recurring',
+        razorpay_plan_id: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_YEARLY
+    },
+} as const;
 
 export async function POST(req: Request) {
     try {
-        console.log("🔹 Checkout API Started");
-
-        // 1. Validate Configuration
-        if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-            console.error("❌ Server Misconfigured: Missing Razorpay Keys");
-            return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+        if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
+            return NextResponse.json(
+                { error: "Razorpay not configured" },
+                { status: 500 }
+            );
         }
 
-        // 2. Validate User (Must be logged in)
+        // 1. Get authenticated user
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-        if (!user) {
-            console.log("⚠️ Unauthorized checkout attempt");
+        if (authError || !user) {
             return NextResponse.json({ error: "Please log in to purchase." }, { status: 401 });
         }
 
         const body = await req.json();
         const { planKey } = body;
-        console.log(`🔹 User: ${user.id} | Plan: ${planKey}`);
 
-        // ==========================================
-        // SCENARIO A: RECURRING SUBSCRIPTION
-        // ==========================================
-        if (planKey in SUBSCRIPTION_PLANS) {
-            const planId = SUBSCRIPTION_PLANS[planKey];
+        // 2. Validate plan
+        const plan = PLANS[planKey as keyof typeof PLANS];
+        if (!plan) {
+            return NextResponse.json({ error: "Invalid Plan" }, { status: 400 });
+        }
 
-            if (!planId) {
-                console.error(`❌ Plan ID missing in .env.local for ${planKey}`);
-                return NextResponse.json({ error: "Plan not configured on server" }, { status: 500 });
-            }
+        // 3. Get or create user's default organization
+        const { data: membership } = await supabaseAdmin
+            .from('organization_members')
+            .select('organization_id, organizations(id, name)')
+            .eq('user_id', user.id)
+            .order('joined_at', { ascending: true })
+            .limit(1)
+            .single();
 
-            console.log(`🔹 Creating Subscription with Plan ID: ${planId}`);
+        if (!membership) {
+            // This should never happen due to trigger, but handle gracefully
+            return NextResponse.json({ error: "Organization not found. Please contact support." }, { status: 500 });
+        }
 
-            try {
-                const subscription = await razorpay.subscriptions.create({
-                    plan_id: planId,
-                    customer_notify: 1,
-                    total_count: 120, // 10 years
-                    quantity: 1,
-                    notes: {
-                        userId: user.id,
-                        planKey: planKey,
-                        type: 'recurring'
-                    }
-                });
+        const organizationId = membership.organization_id;
 
+        // 4. Check if already has active subscription
+        const { data: existingSub } = await supabaseAdmin
+            .from('subscriptions')
+            .select('id, status, plan_id')
+            .eq('organization_id', organizationId)
+            .eq('status', 'active')
+            .maybeSingle();
+
+        if (existingSub) {
+            return NextResponse.json({
+                error: `You already have an active ${existingSub.plan_id} subscription.`
+            }, { status: 400 });
+        }
+
+        // 5. Create Razorpay order/subscription
+        if (plan.type === 'lifetime') {
+            // One-time payment
+            const order = await razorpay.orders.create({
+                amount: plan.amount,
+                currency: "INR",
+                receipt: `org_${organizationId}_${Date.now()}`,
+                notes: {
+                    userId: user.id,
+                    organizationId: organizationId,
+                    planKey: planKey,
+                }
+            });
+
+            return NextResponse.json({
+                orderId: order.id,
+                amount: order.amount,
+                currency: order.currency,
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                type: 'order'
+            });
+        } else {
+            // Recurring subscription
+            if (!plan.razorpay_plan_id) {
                 return NextResponse.json({
-                    subscriptionId: subscription.id, // Frontend needs this
-                    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
-                });
-            } catch (rzpError: any) {
-                console.error("❌ Razorpay Subscription Error:", rzpError);
-                return NextResponse.json({ error: rzpError.error?.description || "Payment initialization failed" }, { status: 500 });
+                    error: "Recurring plan not configured"
+                }, { status: 500 });
             }
+
+            const subscription = await razorpay.subscriptions.create({
+                plan_id: plan.razorpay_plan_id,
+                customer_notify: 1,
+                total_count: 0, // Infinite
+                notes: {
+                    userId: user.id,
+                    organizationId: organizationId,
+                    planKey: planKey,
+                }
+            });
+
+            return NextResponse.json({
+                subscriptionId: subscription.id,
+                amount: plan.amount,
+                currency: 'INR',
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                type: 'subscription'
+            });
         }
-
-        // ==========================================
-        // SCENARIO B: LIFETIME (ONE-TIME)
-        // ==========================================
-        const prices: Record<string, number> = {
-            "starter_lifetime": 299900, // ₹2,999
-            "pro_lifetime": 599900,     // ₹5,999
-        };
-
-        const amount = prices[planKey];
-        if (!amount) {
-            return NextResponse.json({ error: "Invalid Plan Selected" }, { status: 400 });
-        }
-
-        console.log(`🔹 Creating One-Time Order: ₹${amount / 100}`);
-        const order = await razorpay.orders.create({
-            amount: amount,
-            currency: "INR",
-            receipt: `rcpt_${Date.now()}`,
-            notes: {
-                userId: user.id,
-                planKey: planKey,
-                type: 'lifetime'
-            }
-        });
-
-        return NextResponse.json({
-            orderId: order.id,
-            amount: order.amount,
-            currency: order.currency,
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
-        });
 
     } catch (error: any) {
-        console.error("🔥 FATAL CHECKOUT ERROR:", error);
+        console.error("Checkout Error:", error);
         return NextResponse.json(
             { error: error.message || "Internal server error" },
             { status: 500 }

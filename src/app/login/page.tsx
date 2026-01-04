@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { Loader2, ArrowLeft, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner"; // Using Sonner for better toasts
+import { useEffect } from "react";
+
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -18,25 +20,49 @@ export default function Login() {
     const router = useRouter();
     const supabase = createClient();
 
+    useEffect(() => {
+        const pendingPlan = localStorage.getItem('pendingPurchase');
+        if (pendingPlan) {
+            toast.info('Complete your purchase after logging in');
+        }
+    }, []);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
-        // 1. Clean Login Logic (No Auto-Signup)
         const { error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
 
         if (error) {
-            toast.error(error.message); // Clean error toast
+            toast.error(error.message);
             setLoading(false);
         } else {
-            toast.success("Welcome back!");
-            router.push("/dashboard");
-            router.refresh();
+            // Check if there's a pending purchase
+            const pendingPlan = localStorage.getItem('pendingPurchase');
+
+            if (pendingPlan) {
+                toast.success("Logged in! Redirecting to checkout...");
+                localStorage.removeItem('pendingPurchase');
+                // Redirect to pricing with auto-trigger
+                router.push(`/#pricing`);
+                router.refresh();
+
+                // Auto-trigger purchase after redirect
+                setTimeout(() => {
+                    const buyButton = document.querySelector(`[data-plan="${pendingPlan}"]`) as HTMLButtonElement;
+                    if (buyButton) buyButton.click();
+                }, 1000);
+            } else {
+                toast.success("Welcome back!");
+                router.push("/dashboard");
+                router.refresh();
+            }
         }
     };
+
 
     const handleGoogleLogin = async () => {
         const { error } = await supabase.auth.signInWithOAuth({

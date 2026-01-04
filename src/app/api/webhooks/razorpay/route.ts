@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { generateInvoicePDF } from "@/lib/invoice-generator";
-import { sendInvoiceEmail } from "@/lib/email";
+import { sendInvoiceEmail, sendSubscriptionChargedEmail } from "@/lib/email"; // ✅ Fixed import
 import { GSTCalculator, SAC_CODE_SAAS } from "@/lib/gst-engine";
 import { Resend } from 'resend';
 

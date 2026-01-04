@@ -17,17 +17,15 @@ const supabaseAdmin = createClient(
     }
 );
 
-// 🔒 Input validation
 const verifySchema = z.object({
-    orderCreationId: z.string().min(1, "Order ID required"),
-    razorpayPaymentId: z.string().min(1, "Payment ID required"),
-    razorpaySignature: z.string().min(1, "Signature required"),
-    planKey: z.enum(["starter_lifetime", "pro_lifetime"])
+    orderCreationId: z.string().min(1),
+    razorpayPaymentId: z.string().min(1),
+    razorpaySignature: z.string().min(1),
+    planKey: z.enum(["starter_lifetime", "pro_lifetime", "starter_monthly", "pro_yearly"])
 });
 
 export async function POST(req: Request) {
     try {
-        // 1. Parse and validate input
         let body;
         try {
             body = await req.json();
@@ -46,7 +44,7 @@ export async function POST(req: Request) {
 
         console.log("Verifying payment:", razorpayPaymentId);
 
-        // 2. Verify Razorpay Signature
+        // 1. Verify Razorpay Signature
         const shasum = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!);
         shasum.update(`${orderCreationId}|${razorpayPaymentId}`);
         const digest = shasum.digest("hex");
@@ -56,7 +54,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Payment verification failed" }, { status: 400 });
         }
 
-        // 3. Get authenticated user
+        // 2. Get authenticated user
         const { createClient: createServerClient } = await import("@/lib/supabase-server");
         const supabaseUserClient = await createServerClient();
         const { data: { user }, error: authError } = await supabaseUserClient.auth.getUser();
@@ -65,16 +63,31 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Authentication required" }, { status: 401 });
         }
 
+        // 3. Get user's organization
+        const { data: membership } = await supabaseAdmin
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', user.id)
+            .order('joined_at', { ascending: true })
+            .limit(1)
+            .single();
+
+        if (!membership) {
+            return NextResponse.json({ error: "Organization not found" }, { status: 500 });
+        }
+
+        const organizationId = membership.organization_id;
+
         // 4. Check for duplicate processing
         const { data: existingLicense } = await supabaseAdmin
             .from("licenses")
             .select("id")
-            .eq("user_id", user.id)
+            .eq("organization_id", organizationId)
             .eq("plan_key", planKey)
             .maybeSingle();
 
         if (existingLicense) {
-            console.log("License already exists for this user and plan");
+            console.log("License already exists for this org and plan");
             return NextResponse.json({
                 success: true,
                 message: "License already activated"
@@ -85,6 +98,8 @@ export async function POST(req: Request) {
         const prices: Record<string, number> = {
             "starter_lifetime": 2999,
             "pro_lifetime": 5999,
+            "starter_monthly": 999,
+            "pro_yearly": 29999,
         };
         const expectedAmount = prices[planKey];
 
@@ -99,23 +114,24 @@ export async function POST(req: Request) {
         const taxableAmount = totalAmountPaid / (1 + taxRate);
 
         const gstCalculator = new GSTCalculator({
-            sellerStateCode: "08", // 💡 CUSTOMIZE: Your state
-            sellerGSTIN: "YOUR_GSTIN_HERE", // 💡 CUSTOMIZE: Your GSTIN
+            sellerStateCode: "08",
+            sellerGSTIN: "YOUR_GSTIN_HERE",
         });
 
         const taxResult = gstCalculator.calculate(
             { stateCode: "08" },
             [{
-                description: `Acme SaaS ${planName} Lifetime License`,
+                description: `Acme SaaS ${planName} ${planKey.includes('lifetime') ? 'Lifetime' : planKey.includes('monthly') ? 'Monthly' : 'Yearly'} License`,
                 sacCode: SAC_CODE_SAAS,
                 unitPrice: taxableAmount,
                 quantity: 1
             }]
         );
 
-        // 8. Database Transaction: Insert License + Invoice
+        // 8. Database Transaction: Insert License + Subscription + Invoice
         const { error: licenseError } = await supabaseAdmin.from("licenses").insert({
             user_id: user.id,
+            organization_id: organizationId,
             plan_key: planKey,
             license_key: licenseKey,
             status: "active"
@@ -126,10 +142,38 @@ export async function POST(req: Request) {
             throw new Error("Failed to create license");
         }
 
+        // Create subscription record
+        const subType = planKey.includes('lifetime') ? 'lifetime' : 'recurring';
+        const { error: subError } = await supabaseAdmin.from("subscriptions").insert({
+            user_id: user.id,
+            organization_id: organizationId,
+            plan_id: planKey,
+            type: subType,
+            status: "active",
+            razorpay_payment_id: razorpayPaymentId,
+            razorpay_order_id: orderCreationId,
+            amount: totalAmountPaid * 100,
+            currency: "INR"
+        });
+
+        if (subError) {
+            console.error("Subscription Insert Error:", subError);
+        }
+
+        // Update organization status
+        await supabaseAdmin
+            .from("organizations")
+            .update({
+                subscription_status: "active",
+                subscription_plan: planKey.includes('pro') ? 'pro' : 'starter'
+            })
+            .eq("id", organizationId);
+
         const { error: invoiceError } = await supabaseAdmin.from("invoices").insert({
             id: razorpayPaymentId,
             user_id: user.id,
-            amount: totalAmountPaid * 100, // Store in paise
+            organization_id: organizationId,
+            amount: totalAmountPaid * 100,
             status: "paid",
             currency: "INR"
         });
@@ -138,7 +182,7 @@ export async function POST(req: Request) {
             console.error("Invoice Insert Error:", invoiceError);
         }
 
-        // 9. Generate and Send Invoice (non-blocking)
+        // 9. Generate and Send Invoice
         try {
             if (process.env.RESEND_API_KEY) {
                 const pdfBuffer = await generateInvoicePDF({
@@ -147,13 +191,12 @@ export async function POST(req: Request) {
                     customerName: user.user_metadata?.full_name || "Valued Customer",
                     customerAddress: "Not Provided",
                     taxResult: taxResult,
-                    description: `Acme SaaS ${planName} Lifetime License`
+                    description: `Acme SaaS ${planName} ${planKey.includes('lifetime') ? 'Lifetime' : planKey.includes('monthly') ? 'Monthly' : 'Yearly'} License`
                 });
                 await sendInvoiceEmail(user.email, pdfBuffer, taxResult.invoiceNumberSuggestion);
             }
         } catch (emailErr) {
             console.error("Email sending failed:", emailErr);
-            // Don't fail the request if email fails
         }
 
         // 10. Audit log
@@ -163,7 +206,8 @@ export async function POST(req: Request) {
             details: {
                 payment_id: razorpayPaymentId,
                 plan: planKey,
-                license_key: licenseKey
+                license_key: licenseKey,
+                organization_id: organizationId
             }
         });
 
