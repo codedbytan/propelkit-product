@@ -166,3 +166,222 @@ using (
 -- 1. Update your .env.local with Supabase credentials
 -- 2. Configure Razorpay webhook to point to /api/webhooks/razorpay
 -- 3. Test the payment flow with Razorpay test mode
+
+
+
+-- ================================================
+-- ORGANIZATIONS & MULTI-TENANCY
+-- ================================================
+
+-- 1. Organizations Table
+CREATE TABLE public.organizations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL CHECK (char_length(name) >= 2 AND char_length(name) <= 100),
+  slug TEXT UNIQUE NOT NULL CHECK (slug ~ '^[a-z0-9-]+$' AND char_length(slug) <= 50),
+  logo_url TEXT,
+  settings JSONB DEFAULT '{}',
+  
+  -- Billing
+  stripe_customer_id TEXT UNIQUE,
+  subscription_status TEXT DEFAULT 'trial' CHECK (subscription_status IN ('trial', 'active', 'cancelled', 'past_due')),
+  subscription_plan TEXT CHECK (subscription_plan IN ('starter', 'pro', 'agency')),
+  subscription_ends_at TIMESTAMP WITH TIME ZONE,
+  
+  -- Metadata
+  created_by UUID REFERENCES auth.users(id) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  deleted_at TIMESTAMP WITH TIME ZONE -- Soft delete
+);
+
+-- Indexes for performance
+CREATE INDEX idx_organizations_slug ON public.organizations(slug) WHERE deleted_at IS NULL;
+CREATE INDEX idx_organizations_created_by ON public.organizations(created_by) WHERE deleted_at IS NULL;
+CREATE INDEX idx_organizations_subscription_status ON public.organizations(subscription_status) WHERE deleted_at IS NULL;
+
+-- Auto-update updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON public.organizations
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 2. Organization Members
+CREATE TABLE public.organization_members (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
+  
+  -- Invitation tracking
+  invited_by UUID REFERENCES auth.users(id),
+  invited_at TIMESTAMP WITH TIME ZONE,
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  
+  -- Constraints
+  UNIQUE(organization_id, user_id) -- User can only be in org once
+);
+
+-- Indexes
+CREATE INDEX idx_org_members_org_id ON public.organization_members(organization_id);
+CREATE INDEX idx_org_members_user_id ON public.organization_members(user_id);
+CREATE INDEX idx_org_members_role ON public.organization_members(organization_id, role);
+
+-- 3. Organization Invites
+CREATE TABLE public.organization_invites (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE NOT NULL,
+  email TEXT NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+  role TEXT NOT NULL CHECK (role IN ('admin', 'member')), -- Can't invite as owner
+  token TEXT UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex'),
+  
+  invited_by UUID REFERENCES auth.users(id) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE DEFAULT (timezone('utc'::text, now()) + INTERVAL '7 days') NOT NULL,
+  accepted_at TIMESTAMP WITH TIME ZONE,
+  
+  -- Prevent duplicate invites
+  UNIQUE(organization_id, email, accepted_at) -- Can re-invite after acceptance
+);
+
+CREATE INDEX idx_org_invites_token ON public.organization_invites(token) WHERE accepted_at IS NULL;
+CREATE INDEX idx_org_invites_org_email ON public.organization_invites(organization_id, email) WHERE accepted_at IS NULL;
+
+-- 4. Modify Existing Tables for Multi-Tenancy
+ALTER TABLE public.licenses 
+  ADD COLUMN organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+  DROP CONSTRAINT IF EXISTS licenses_user_id_plan_key_key; -- Remove old constraint
+
+-- New constraint: org can have multiple licenses
+ALTER TABLE public.licenses 
+  ADD CONSTRAINT licenses_org_plan_unique UNIQUE(organization_id, plan_key);
+
+-- Migrate existing licenses to orgs (one-time)
+-- We'll create personal orgs for existing users
+
+ALTER TABLE public.invoices 
+  ADD COLUMN organization_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL;
+
+-- ================================================
+-- ROW LEVEL SECURITY (RLS) - CRITICAL
+-- ================================================
+
+-- Enable RLS
+ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_invites ENABLE ROW LEVEL SECURITY;
+
+-- Organizations: Users can only see orgs they're members of
+CREATE POLICY "Users can view their organizations"
+  ON public.organizations FOR SELECT
+  USING (
+    id IN (
+      SELECT organization_id FROM public.organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update their organizations"
+  ON public.organizations FOR UPDATE
+  USING (
+    id IN (
+      SELECT organization_id FROM public.organization_members
+      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
+    )
+  );
+
+CREATE POLICY "Users can create organizations"
+  ON public.organizations FOR INSERT
+  WITH CHECK (created_by = auth.uid());
+
+-- Members: Users see members of their orgs
+CREATE POLICY "Users can view org members"
+  ON public.organization_members FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM public.organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Admins can manage members"
+  ON public.organization_members FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM public.organization_members
+      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
+    )
+  );
+
+-- Invites: Only admins see invites
+CREATE POLICY "Admins can manage invites"
+  ON public.organization_invites FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM public.organization_members
+      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
+    )
+  );
+
+-- Update licenses RLS
+DROP POLICY IF EXISTS "Users can view own license" ON public.licenses;
+CREATE POLICY "Users can view org licenses"
+  ON public.licenses FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM public.organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- Update invoices RLS
+DROP POLICY IF EXISTS "Users can view own invoices" ON public.invoices;
+CREATE POLICY "Users can view org invoices"
+  ON public.invoices FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM public.organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- ================================================
+-- HELPER FUNCTIONS
+-- ================================================
+
+-- Function to check if user is org admin
+CREATE OR REPLACE FUNCTION is_org_admin(org_id UUID, user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.organization_members
+    WHERE organization_id = org_id
+      AND organization_members.user_id = is_org_admin.user_id
+      AND role IN ('owner', 'admin')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to get user's current org (from session or default)
+CREATE OR REPLACE FUNCTION get_user_current_org(user_id UUID)
+RETURNS UUID AS $$
+DECLARE
+  org_id UUID;
+BEGIN
+  -- Get first org user is member of
+  SELECT organization_id INTO org_id
+  FROM public.organization_members
+  WHERE organization_members.user_id = get_user_current_org.user_id
+  ORDER BY joined_at ASC
+  LIMIT 1;
+  
+  RETURN org_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
