@@ -4,28 +4,43 @@ import { inngest } from "@/inngest/client";
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { email, userId, eventType } = body;
+        // 1. Safely parse body
+        let body = {};
+        try {
+            body = await request.json();
+        } catch (e) {
+            console.log("⚠️ No JSON body provided, using defaults");
+        }
 
-        // Default to onboarding test
-        const event = eventType || "user/signed-up";
+        const { email, userId, eventType } = body as any;
 
-        // Trigger the event
+        // 2. Define payload with fallback
+        const eventName = eventType || "user/signed-up";
+        const eventData = {
+            userId: userId || "test-user-123",
+            email: email || "test@example.com",
+            name: "Test User",
+        };
+
+        console.log(`🚀 Triggering Event: ${eventName}`);
+        console.log(`📦 Payload:`, eventData);
+
+        // 3. Send to Inngest
         await inngest.send({
-            name: event,
-            data: {
-                userId: userId || "test-user-123",
-                email: email || "test@example.com",
-                name: "Test User",
-            },
+            name: eventName,
+            data: eventData,
         });
 
         return NextResponse.json({
             success: true,
-            message: `Triggered ${event} event for ${email}`,
+            message: `Triggered ${eventName} for ${eventData.email}`,
         });
+
     } catch (error: any) {
-        console.error("Test error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("🔥 Test Error:", error);
+        return NextResponse.json({
+            error: error.message,
+            detail: "Check server logs for more info"
+        }, { status: 500 });
     }
 }
