@@ -10,23 +10,23 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // ONBOARDING EMAIL SEQUENCE
 // ============================================
 export const onboardingSequence = inngest.createFunction(
-    {
-        id: "onboarding-sequence",
-        name: "User Onboarding Email Sequence",
-    },
-    { event: "user/signed-up" },
-    async ({ event, step }) => {
-        const { userId, email, name } = event.data;
+  {
+    id: "onboarding-sequence",
+    name: "User Onboarding Email Sequence",
+  },
+  { event: "user/signed-up" },
+  async ({ event, step }) => {
+    const { userId, email, name } = event.data;
 
-        // DAY 1: Welcome Email
-        await step.run("send-welcome-email", async () => {
-            console.log(`📧 Sending welcome email to ${email}`);
+    // DAY 1: Welcome Email
+    await step.run("send-welcome-email", async () => {
+      console.log(`📧 Sending welcome email to ${email}`);
 
-            await resend.emails.send({
-                from: "PropelKit <support@propelkit.dev>",
-                to: email,
-                subject: "Welcome to PropelKit! 🚀",
-                html: `
+      await resend.emails.send({
+        from: "PropelKit <support@propelkit.dev>",
+        to: email,
+        subject: "Welcome to PropelKit! 🚀",
+        html: `
           <!DOCTYPE html>
           <html>
           <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -51,23 +51,23 @@ export const onboardingSequence = inngest.createFunction(
           </body>
           </html>
         `,
-            });
+      });
 
-            console.log(`✅ Welcome email sent to ${email}`);
-        });
+      console.log(`✅ Welcome email sent to ${email}`);
+    });
 
-        // Wait 2 days
-        await step.sleep("wait-2-days", "2d");
+    // Wait 2 days
+    await step.sleep("wait-2-days", "2d");
 
-        // DAY 3: Tips Email
-        await step.run("send-tips-email", async () => {
-            console.log(`📧 Sending tips email to ${email}`);
+    // DAY 3: Tips Email
+    await step.run("send-tips-email", async () => {
+      console.log(`📧 Sending tips email to ${email}`);
 
-            await resend.emails.send({
-                from: "PropelKit <support@propelkit.dev>",
-                to: email,
-                subject: "5 Tips to Launch Your SaaS Faster 🚀",
-                html: `
+      await resend.emails.send({
+        from: "PropelKit <support@propelkit.dev>",
+        to: email,
+        subject: "5 Tips to Launch Your SaaS Faster 🚀",
+        html: `
           <!DOCTYPE html>
           <html>
           <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -89,35 +89,35 @@ export const onboardingSequence = inngest.createFunction(
           </body>
           </html>
         `,
-            });
+      });
 
-            console.log(`✅ Tips email sent to ${email}`);
-        });
+      console.log(`✅ Tips email sent to ${email}`);
+    });
 
-        return { success: true, userId, email };
-    }
+    return { success: true, userId, email };
+  }
 );
 
 // ============================================
 // POST-PURCHASE EMAIL
 // ============================================
 export const postPurchaseSequence = inngest.createFunction(
-    {
-        id: "post-purchase-sequence",
-        name: "Post-Purchase Email Sequence",
-    },
-    { event: "user/upgraded" },
-    async ({ event, step }) => {
-        const { userId, email, planId, amount } = event.data;
+  {
+    id: "post-purchase-sequence",
+    name: "Post-Purchase Email Sequence",
+  },
+  { event: "user/upgraded" },
+  async ({ event, step }) => {
+    const { userId, email, planId, amount } = event.data;
 
-        await step.run("send-thank-you", async () => {
-            console.log(`📧 Sending thank you email to ${email}`);
+    await step.run("send-thank-you", async () => {
+      console.log(`📧 Sending thank you email to ${email}`);
 
-            await resend.emails.send({
-                from: "PropelKit <support@propelkit.dev>",
-                to: email,
-                subject: "Thank you for your purchase! 🎉",
-                html: `
+      await resend.emails.send({
+        from: "PropelKit <support@propelkit.dev>",
+        to: email,
+        subject: "Thank you for your purchase! 🎉",
+        html: `
           <!DOCTYPE html>
           <html>
           <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -142,9 +142,48 @@ export const postPurchaseSequence = inngest.createFunction(
           </body>
           </html>
         `,
-            });
-        });
+      });
+    });
 
-        return { success: true };
-    }
+    return { success: true };
+  }
+);
+// ============================================
+// SUBSCRIPTION RENEWAL NOTIFICATION
+// ============================================
+export const subscriptionRenewalReminder = inngest.createFunction(
+  {
+    id: "subscription-renewal-reminder",
+    name: "Subscription Renewal Reminder",
+  },
+  { event: "subscription/charged" },
+  async ({ event, step }) => {
+    const { email, amount, planId } = event.data;
+
+    await step.run("send-renewal-notification", async () => {
+      await resend.emails.send({
+        from: "PropelKit <support@propelkit.dev>",
+        to: email,
+        subject: "Your subscription has been renewed ✅",
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1>Payment Successful ✅</h1>
+            
+            <p>Your ${planId} subscription has been renewed.</p>
+            
+            <p><strong>Amount:</strong> ₹${(amount / 100).toLocaleString("en-IN")}</p>
+            
+            <p>Your GST invoice is attached.</p>
+            
+            <p>Thank you for being a PropelKit customer!</p>
+          </body>
+          </html>
+        `,
+      });
+    });
+
+    return { success: true, email };
+  }
 );
