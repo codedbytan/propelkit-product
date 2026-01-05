@@ -49,7 +49,12 @@ const organizationCreated = inngest.createFunction(
         }
     }
 );
-
+console.log('🔑 Debug Keys:', {
+    hasEventKey: !!process.env.INNGEST_EVENT_KEY,
+    hasSigningKey: !!process.env.INNGEST_SIGNING_KEY,
+    eventKeyPrefix: process.env.INNGEST_EVENT_KEY?.substring(0, 5),
+    signingKeyPrefix: process.env.INNGEST_SIGNING_KEY?.substring(0, 10),
+});
 // Export ALL functions
 export const { GET, POST, PUT } = serve({
     client: inngest,
