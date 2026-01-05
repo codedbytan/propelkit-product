@@ -4,6 +4,7 @@ import { Inngest } from 'inngest';
 // Create Inngest client
 export const inngest = new Inngest({
     id: 'acme-saas',
+    name: 'PropelKit Product',
     eventKey: process.env.INNGEST_EVENT_KEY,
 });
 
