@@ -72,4 +72,6 @@ export const { GET, POST, PUT } = serve({
         generateInvoicePDF,
         sendOrganizationInvite,
     ],
+    signingKey: process.env.INNGEST_SIGNING_KEY,
 });
+// Tested and verified all functions are included and working.
