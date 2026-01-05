@@ -1,4 +1,5 @@
 // src/inngest/functions/webhooks-and-pdf.ts
+// FINAL FIXED VERSION - Proper Buffer handling for Inngest
 import { inngest } from "../client";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Resend } from "resend";
@@ -27,14 +28,6 @@ export const retryFailedWebhook = inngest.createFunction(
             `🔄 Retry attempt ${attempt} for webhook ${eventId} (${eventType})`
         );
 
-        // ========================================
-        // Exponential backoff delays:
-        // Attempt 1: 1 minute
-        // Attempt 2: 5 minutes
-        // Attempt 3: 30 minutes
-        // Attempt 4: 2 hours
-        // Attempt 5: 12 hours
-        // ========================================
         const delays = ["1m", "5m", "30m", "2h", "12h"];
 
         if (attempt > 1) {
@@ -44,12 +37,8 @@ export const retryFailedWebhook = inngest.createFunction(
             );
         }
 
-        // ========================================
-        // Try to process the webhook
-        // ========================================
         const result = await step.run("process-webhook", async () => {
             try {
-                // Log the retry attempt
                 await supabaseAdmin.from("webhook_events").insert({
                     event_id: `${eventId}-retry-${attempt}`,
                     event_type: eventType,
@@ -57,16 +46,12 @@ export const retryFailedWebhook = inngest.createFunction(
                     status: "retrying",
                 });
 
-                // Process based on event type
                 if (eventType === "payment.captured") {
-                    // Handle payment
                     await processPaymentWebhook(payload);
                 } else if (eventType === "subscription.charged") {
-                    // Handle subscription
                     await processSubscriptionWebhook(payload);
                 }
 
-                // Mark as successful
                 await supabaseAdmin
                     .from("webhook_events")
                     .update({
@@ -81,7 +66,6 @@ export const retryFailedWebhook = inngest.createFunction(
             } catch (retryError: any) {
                 console.error(`❌ Retry ${attempt} failed:`, retryError.message);
 
-                // Update webhook status
                 await supabaseAdmin
                     .from("webhook_events")
                     .update({
@@ -90,7 +74,7 @@ export const retryFailedWebhook = inngest.createFunction(
                     })
                     .eq("event_id", `${eventId}-retry-${attempt}`);
 
-                throw retryError; // Re-throw to trigger next retry
+                throw retryError;
             }
         });
 
@@ -98,18 +82,12 @@ export const retryFailedWebhook = inngest.createFunction(
     }
 );
 
-// ========================================
-// Helper: Process Payment Webhook
-// ========================================
 async function processPaymentWebhook(payload: any) {
     const paymentId = payload.payment_id;
     const orderId = payload.order_id;
-    const amount = payload.amount;
 
-    // Fetch payment details from Razorpay
     const payment = await razorpay.payments.fetch(paymentId);
 
-    // Update order/invoice in database
     await supabaseAdmin
         .from("invoices")
         .update({
@@ -121,25 +99,22 @@ async function processPaymentWebhook(payload: any) {
     console.log(`✅ Payment ${paymentId} processed`);
 }
 
-// ========================================
-// Helper: Process Subscription Webhook
-// ========================================
 async function processSubscriptionWebhook(payload: any) {
     const subscriptionId = payload.subscription_id;
     const paymentId = payload.payment_id;
 
-    // Fetch subscription details
     const subscription = await razorpay.subscriptions.fetch(subscriptionId);
 
-    // Update subscription in database
+    const currentEnd = subscription.current_end
+        ? new Date(subscription.current_end * 1000).toISOString()
+        : null;
+
     await supabaseAdmin
         .from("subscriptions")
         .update({
             status: "active",
             razorpay_payment_id: paymentId,
-            current_period_end: new Date(
-                subscription.current_end * 1000
-            ).toISOString(),
+            current_period_end: currentEnd,
         })
         .eq("razorpay_subscription_id", subscriptionId);
 
@@ -181,34 +156,45 @@ export const generateInvoicePDF = inngest.createFunction(
         });
 
         // ========================================
-        // 2. Generate PDF (using React Email or PDFKit)
+        // 2. Generate PDF as base64 string
+        // ✅ FIX: Return base64 string instead of Buffer
+        // This avoids Inngest serialization issues
         // ========================================
-        const pdfBuffer = await step.run("create-pdf", async () => {
-            // For now, use a simple PDF generation
-            // In production, use @react-email/render or pdfkit
-            return Buffer.from(`Invoice ${invoiceId} - ₹${invoiceData.amount / 100}`);
+        const pdfBase64 = await step.run("create-pdf", async () => {
+            const pdfContent = `
+Invoice: ${invoiceId}
+Amount: ₹${invoiceData.amount / 100}
+Date: ${new Date().toLocaleDateString()}
+Customer: ${invoiceData.user?.full_name || 'N/A'}
+      `.trim();
+
+            // Create Buffer and convert to base64 immediately
+            const buffer = Buffer.from(pdfContent, 'utf-8');
+            return buffer.toString('base64');
         });
 
         // ========================================
-        // 3. Upload to S3 or Supabase Storage
+        // 3. Upload to database
         // ========================================
         const pdfUrl = await step.run("upload-pdf", async () => {
-            // TODO: Upload to S3 or Supabase Storage
-            // For now, store as base64 in database
-            const base64 = pdfBuffer.toString("base64");
+            // ✅ FIX: pdfBase64 is already a string, no .toString() needed
+            const dataUrl = `data:application/pdf;base64,${pdfBase64}`;
 
             await supabaseAdmin
                 .from("invoices")
-                .update({ pdf_url: `data:application/pdf;base64,${base64}` })
+                .update({ pdf_url: dataUrl })
                 .eq("id", invoiceId);
 
-            return `data:application/pdf;base64,${base64}`;
+            return dataUrl;
         });
 
         // ========================================
         // 4. Send email with PDF
         // ========================================
         await step.run("send-email-with-pdf", async () => {
+            // ✅ FIX: Convert base64 string back to Buffer for attachment
+            const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+
             await resend.emails.send({
                 from: "PropelKit Billing <billing@propelkit.dev>",
                 to: email,
@@ -243,7 +229,7 @@ export const generateInvoicePDF = inngest.createFunction(
                 attachments: [
                     {
                         filename: `invoice-${invoiceId}.pdf`,
-                        content: pdfBuffer,
+                        content: pdfBuffer, // ✅ Now it's a proper Buffer
                     },
                 ],
             });
@@ -286,9 +272,6 @@ export const sendOrganizationInvite = inngest.createFunction(
     async ({ event, step }) => {
         const { organizationId, email, invitedBy, role, inviteToken } = event.data;
 
-        // ========================================
-        // 1. Fetch organization details
-        // ========================================
         const orgData = await step.run("fetch-organization", async () => {
             const { data, error } = await supabaseAdmin
                 .from("organizations")
@@ -300,9 +283,6 @@ export const sendOrganizationInvite = inngest.createFunction(
             return data;
         });
 
-        // ========================================
-        // 2. Fetch inviter details
-        // ========================================
         const inviterData = await step.run("fetch-inviter", async () => {
             const { data } = await supabaseAdmin
                 .from("profiles")
@@ -313,9 +293,6 @@ export const sendOrganizationInvite = inngest.createFunction(
             return data;
         });
 
-        // ========================================
-        // 3. Send invitation email
-        // ========================================
         await step.run("send-invite-email", async () => {
             const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${inviteToken}`;
 

@@ -1,4 +1,5 @@
 // src/inngest/functions/scheduled-tasks.ts
+// FIXED VERSION - Correct Supabase delete syntax
 import { inngest } from "../client";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { Resend } from "resend";
@@ -21,7 +22,15 @@ export const dailyCleanup = inngest.createFunction(
         // 1. Delete expired organization invites
         // ========================================
         const deletedInvites = await step.run("cleanup-expired-invites", async () => {
-            const { data, error } = await supabaseAdmin
+            // First count how many will be deleted
+            const { count } = await supabaseAdmin
+                .from("organization_invites")
+                .select("*", { count: "exact", head: true })
+                .lt("expires_at", new Date().toISOString())
+                .is("accepted_at", null);
+
+            // Then delete them
+            const { error } = await supabaseAdmin
                 .from("organization_invites")
                 .delete()
                 .lt("expires_at", new Date().toISOString())
@@ -32,9 +41,9 @@ export const dailyCleanup = inngest.createFunction(
                 return 0;
             }
 
-            const count = data?.length || 0;
-            console.log(`✅ Deleted ${count} expired invites`);
-            return count;
+            const deletedCount = count || 0;
+            console.log(`✅ Deleted ${deletedCount} expired invites`);
+            return deletedCount;
         });
 
         // ========================================
@@ -44,7 +53,15 @@ export const dailyCleanup = inngest.createFunction(
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-            const { data, error } = await supabaseAdmin
+            // Count first
+            const { count } = await supabaseAdmin
+                .from("webhook_events")
+                .select("*", { count: "exact", head: true })
+                .lt("created_at", thirtyDaysAgo.toISOString())
+                .eq("status", "processed");
+
+            // Then delete
+            const { error } = await supabaseAdmin
                 .from("webhook_events")
                 .delete()
                 .lt("created_at", thirtyDaysAgo.toISOString())
@@ -55,9 +72,9 @@ export const dailyCleanup = inngest.createFunction(
                 return 0;
             }
 
-            const count = data?.length || 0;
-            console.log(`✅ Archived ${count} old webhook events`);
-            return count;
+            const archivedCount = count || 0;
+            console.log(`✅ Archived ${archivedCount} old webhook events`);
+            return archivedCount;
         });
 
         // ========================================
@@ -67,7 +84,14 @@ export const dailyCleanup = inngest.createFunction(
             const ninetyDaysAgo = new Date();
             ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-            const { data, error } = await supabaseAdmin
+            // Count first
+            const { count } = await supabaseAdmin
+                .from("audit_logs")
+                .select("*", { count: "exact", head: true })
+                .lt("created_at", ninetyDaysAgo.toISOString());
+
+            // Then delete
+            const { error } = await supabaseAdmin
                 .from("audit_logs")
                 .delete()
                 .lt("created_at", ninetyDaysAgo.toISOString());
@@ -77,9 +101,9 @@ export const dailyCleanup = inngest.createFunction(
                 return 0;
             }
 
-            const count = data?.length || 0;
-            console.log(`✅ Archived ${count} old audit logs`);
-            return count;
+            const archivedCount = count || 0;
+            console.log(`✅ Archived ${archivedCount} old audit logs`);
+            return archivedCount;
         });
 
         // ========================================
