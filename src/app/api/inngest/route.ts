@@ -1,5 +1,6 @@
 // src/app/api/inngest/route.ts
-// COMPLETE VERSION - All 9 functions included
+// COMPLETE CORRECT VERSION - All 10 functions + signingKey
+
 import { serve } from 'inngest/next';
 import { inngest } from '@/lib/inngest';
 import { sendOrganizationWelcomeEmail } from '@/lib/email';
@@ -26,7 +27,9 @@ import {
     sendOrganizationInvite
 } from '@/lib/inngest-webhooks-pdf';
 
-// Organization created function (keep your existing one)
+// ============================================
+// FUNCTION 1: Organization Created
+// ============================================
 const organizationCreated = inngest.createFunction(
     { id: 'organization-created' },
     { event: 'organization.created' },
@@ -49,34 +52,31 @@ const organizationCreated = inngest.createFunction(
         }
     }
 );
-console.log('🔑 Debug Keys:', {
-    hasEventKey: !!process.env.INNGEST_EVENT_KEY,
-    hasSigningKey: !!process.env.INNGEST_SIGNING_KEY,
-    eventKeyPrefix: process.env.INNGEST_EVENT_KEY?.substring(0, 5),
-    signingKeyPrefix: process.env.INNGEST_SIGNING_KEY?.substring(0, 10),
-});
-// Export ALL functions
+
+// ============================================
+// EXPORT SERVE HANDLER - WITH SIGNINGKEY
+// ============================================
 export const { GET, POST, PUT } = serve({
     client: inngest,
     functions: [
-        // Organization
+        // Function 1: Organization welcome
         organizationCreated,
 
-        // Email sequences (3 functions)
+        // Functions 2-4: Email sequences
         onboardingSequence,
         postPurchaseSequence,
         subscriptionRenewalReminder,
 
-        // Scheduled tasks (3 functions)
+        // Functions 5-7: Scheduled tasks
         dailyCleanup,
         weeklyAnalyticsReport,
         monthlyBillingCycle,
 
-        // Webhooks and PDF (3 functions)
+        // Functions 8-10: Webhooks and PDF
         retryFailedWebhook,
         generateInvoicePDF,
         sendOrganizationInvite,
     ],
+    // ✅✅✅ THIS IS THE CRITICAL LINE ✅✅✅
     signingKey: process.env.INNGEST_SIGNING_KEY,
 });
-// Tested and verified all functions are included and working.
