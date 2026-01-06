@@ -1,10 +1,8 @@
 // src/pages/api/inngest.ts
-// Pages Router version - Default export ONLY
-
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest";
 
-// Import all functions
+// Import all your function files
 import {
     onboardingSequence,
     postPurchaseSequence,
@@ -48,7 +46,7 @@ const organizationCreated = inngest.createFunction(
     }
 );
 
-// ✅ DEFAULT EXPORT - No GET/POST/PUT!
+// ✅ DEFAULT EXPORT - NOT named exports!
 export default serve({
     client: inngest,
     functions: [
