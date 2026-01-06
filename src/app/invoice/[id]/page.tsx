@@ -5,11 +5,17 @@ import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 export default function InvoicePage() {
-    const { id } = useParams();
+    // FIX: Safely access params to handle potential null values or strict type checks
+    const params = useParams();
+    const id = params?.id as string;
+
     const [invoice, setInvoice] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // FIX: Ensure id exists before attempting to fetch
+        if (!id) return;
+
         const fetchInvoice = async () => {
             const supabase = createClient();
             const { data } = await supabase.from("invoices").select("*").eq("id", id).single();
