@@ -1,47 +1,42 @@
-// src/app/api/inngest/route.ts
-// COMPLETE CORRECT VERSION - All 10 functions + signingKey
+// src/pages/api/inngest.ts
+// Pages Router version - Default export ONLY
 
-import { serve } from 'inngest/next';
-import { inngest } from '@/lib/inngest';
-import { sendOrganizationWelcomeEmail } from '@/lib/email';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { serve } from "inngest/next";
+import { inngest } from "@/lib/inngest";
 
-// Import email sequence functions
+// Import all functions
 import {
     onboardingSequence,
     postPurchaseSequence,
     subscriptionRenewalReminder
 } from '@/lib/inngest-functions';
 
-// Import scheduled task functions
 import {
     dailyCleanup,
     weeklyAnalyticsReport,
     monthlyBillingCycle
 } from '@/lib/inngest-scheduled-tasks';
 
-// Import webhook and PDF functions
 import {
     retryFailedWebhook,
     generateInvoicePDF,
     sendOrganizationInvite
 } from '@/lib/inngest-webhooks-pdf';
 
-// ============================================
-// FUNCTION 1: Organization Created
-// ============================================
+import { sendOrganizationWelcomeEmail } from '@/lib/email';
+import { supabaseAdmin } from '@/lib/supabase-admin';
+
+// Organization created function
 const organizationCreated = inngest.createFunction(
     { id: 'organization-created' },
     { event: 'organization.created' },
     async ({ event }) => {
-        // Get org details
         const { data: org } = await supabaseAdmin
             .from('organizations')
             .select('name')
             .eq('id', event.data.organizationId)
             .single();
 
-        // Get user email
         const { data: user } = await supabaseAdmin.auth.admin.getUserById(event.data.userId);
 
         if (org && user.user) {
@@ -53,30 +48,20 @@ const organizationCreated = inngest.createFunction(
     }
 );
 
-// ============================================
-// EXPORT SERVE HANDLER - WITH SIGNINGKEY
-// ============================================
-export const { GET, POST, PUT } = serve({
+// ✅ DEFAULT EXPORT - No GET/POST/PUT!
+export default serve({
     client: inngest,
     functions: [
-        // Function 1: Organization welcome
         organizationCreated,
-
-        // Functions 2-4: Email sequences
         onboardingSequence,
         postPurchaseSequence,
         subscriptionRenewalReminder,
-
-        // Functions 5-7: Scheduled tasks
         dailyCleanup,
         weeklyAnalyticsReport,
         monthlyBillingCycle,
-
-        // Functions 8-10: Webhooks and PDF
         retryFailedWebhook,
         generateInvoicePDF,
         sendOrganizationInvite,
     ],
-    // ✅✅✅ THIS IS THE CRITICAL LINE ✅✅✅
     signingKey: process.env.INNGEST_SIGNING_KEY,
 });
