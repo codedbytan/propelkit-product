@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Create Inngest client inline (no import from @/lib/inngest)
 const inngest = new Inngest({
-    id: 'acme-saas',
+    id: 'propelkit-acme-prod',
     eventKey: process.env.INNGEST_EVENT_KEY,
 });
 
