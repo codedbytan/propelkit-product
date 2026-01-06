@@ -1,14 +1,14 @@
 // src/lib/inngest.ts
 import { Inngest } from 'inngest';
 
-// Create Inngest client
 export const inngest = new Inngest({
-    id: 'propelkit-acme-prod',  // ← Unique name
-    name: 'PropelKit Acme Production',
+    id: 'acme-saas',
+    eventKey: process.env.INNGEST_EVENT_KEY,
 });
 
-// Event types for type safety
+// ✅ ENHANCED Event types
 export type InngestEvents = {
+    // Existing
     'organization.created': {
         data: {
             organizationId: string;
@@ -32,6 +32,35 @@ export type InngestEvents = {
             organizationId: string;
             email: string;
             role: 'admin' | 'member';
+        };
+    };
+
+    // 🆕 ADD THESE for Priority 2: Background Jobs
+    'user.signed-up': {
+        data: {
+            userId: string;
+            email: string;
+            name?: string;
+        };
+    };
+    'license.purchased': {
+        data: {
+            userId: string;
+            licenseId: string;
+            planKey: string;
+            email: string;
+        };
+    };
+    'invoice.generated': {
+        data: {
+            invoiceId: string;
+            userId: string;
+            pdfUrl?: string;
+        };
+    };
+    'daily.cleanup': {
+        data: {
+            timestamp: string;
         };
     };
 };
