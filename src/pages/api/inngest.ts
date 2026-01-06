@@ -1,30 +1,9 @@
 // src/pages/api/inngest.ts
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest";
-
-// Import all your function files
-import {
-    onboardingSequence,
-    postPurchaseSequence,
-    subscriptionRenewalReminder
-} from '@/lib/inngest-functions';
-
-import {
-    dailyCleanup,
-    weeklyAnalyticsReport,
-    monthlyBillingCycle
-} from '@/lib/inngest-scheduled-tasks';
-
-import {
-    retryFailedWebhook,
-    generateInvoicePDF,
-    sendOrganizationInvite
-} from '@/lib/inngest-webhooks-pdf';
-
 import { sendOrganizationWelcomeEmail } from '@/lib/email';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
-// Organization created function
 const organizationCreated = inngest.createFunction(
     { id: 'organization-created' },
     { event: 'organization.created' },
@@ -46,20 +25,9 @@ const organizationCreated = inngest.createFunction(
     }
 );
 
-// ✅ DEFAULT EXPORT - NOT named exports!
+// ✅ DEFAULT EXPORT (not named exports)
 export default serve({
     client: inngest,
-    functions: [
-        organizationCreated,
-        onboardingSequence,
-        postPurchaseSequence,
-        subscriptionRenewalReminder,
-        dailyCleanup,
-        weeklyAnalyticsReport,
-        monthlyBillingCycle,
-        retryFailedWebhook,
-        generateInvoicePDF,
-        sendOrganizationInvite,
-    ],
+    functions: [organizationCreated],
     signingKey: process.env.INNGEST_SIGNING_KEY,
 });
