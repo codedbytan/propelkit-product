@@ -1,268 +1,189 @@
+// src/app/admin/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase-browser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
-    TrendingUp,
-    AlertCircle,
-    CheckCircle,
-    DollarSign,
-    Users,
-    Activity,
-    XCircle,
-    ArrowLeft
+    DollarSign, Users, CreditCard, AlertCircle,
+    TrendingUp, Activity, ArrowLeft, Search,
+    UserCheck, Shield
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { BRAND_CONFIG } from "@/config/brand";
 
-interface Stats {
+interface DashboardStats {
     totalRevenue: number;
     totalUsers: number;
     activeLicenses: number;
     failedPayments: number;
-    recentPayments: any[];
-    systemHealth: {
-        supabase: string;
-        razorpay: string;
-    };
+    revenueGrowth: number;
+    userGrowth: number;
+    revenueByDay: Array<{ date: string; revenue: number }>;
+    usersByDay: Array<{ date: string; users: number }>;
 }
 
 export default function AdminDashboard() {
-    const [stats, setStats] = useState<Stats | null>(null);
+    const [authorized, setAuthorized] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [debugInfo, setDebugInfo] = useState<any>(null);
     const supabase = createClient();
-    const router = useRouter();
 
     useEffect(() => {
-        checkAuth();
+        checkAdminAccess();
     }, []);
 
-    async function checkAuth() {
+    async function checkAdminAccess() {
         try {
-            console.log("🔍 Checking authentication...");
-
-            // Get current user
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-            console.log("User:", user?.email);
-
-            if (authError) {
-                console.error("Auth error:", authError);
-                setError("Authentication error: " + authError.message);
-                router.push("/login");
-                return;
-            }
+            const { data: { user } } = await supabase.auth.getUser();
 
             if (!user) {
-                console.log("❌ No user found, redirecting to login");
-                setError("Not logged in");
-                router.push("/login");
+                window.location.href = "/sign-in?redirect=/admin";
                 return;
             }
 
-            console.log("✅ User authenticated:", user.email);
-            console.log("User ID:", user.id);
-
-            // Check profile with detailed logging
-            console.log("🔍 Checking profile...");
-            const { data: profile, error: profileError } = await supabase
+            // Check if user is admin
+            const { data: profile } = await supabase
                 .from("profiles")
-                .select("id, email, is_super_admin, is_admin, full_name")
+                .select("is_super_admin, is_admin")
                 .eq("id", user.id)
                 .single();
 
-            console.log("Profile query error:", profileError);
-            console.log("Profile data:", profile);
-
-            if (profileError) {
-                console.error("❌ Profile error:", profileError);
-                setError(`Profile not found: ${profileError.message}`);
-                setDebugInfo({
-                    userId: user.id,
-                    email: user.email,
-                    profileError: profileError.message,
-                    hint: "Profile might not exist. Run quick_fix_admin.sql"
-                });
+            if (!profile?.is_super_admin && !profile?.is_admin) {
+                setError("Access denied - Super admin privileges required");
                 setLoading(false);
                 return;
             }
 
-            if (!profile) {
-                console.error("❌ Profile not found");
-                setError("Profile not found in database");
-                setDebugInfo({
-                    userId: user.id,
-                    email: user.email,
-                    hint: "Profile doesn't exist. Run quick_fix_admin.sql"
-                });
-                setLoading(false);
-                return;
-            }
-
-            console.log("Profile found:", {
-                email: profile.email,
-                is_super_admin: profile.is_super_admin,
-                is_admin: profile.is_admin
-            });
-
-            // Check admin status
-            if (!profile.is_super_admin && !profile.is_admin) {
-                console.error("❌ User is not an admin");
-                setError("Access denied - Admin privileges required");
-                setDebugInfo({
-                    email: profile.email,
-                    is_super_admin: profile.is_super_admin,
-                    is_admin: profile.is_admin,
-                    hint: "Run: UPDATE profiles SET is_super_admin = TRUE WHERE email = '" + user.email + "';"
-                });
-                setLoading(false);
-                // Don't redirect immediately - show debug info
-                return;
-            }
-
-            console.log("✅ Admin access granted!");
-            fetchStats();
-
-        } catch (error: any) {
-            console.error("Unexpected error:", error);
-            setError("Unexpected error: " + error.message);
-            setDebugInfo({ error: error.message });
+            setAuthorized(true);
+            await fetchDashboardStats();
+        } catch (err) {
+            console.error("Admin check failed:", err);
+            setError("Failed to verify admin access");
             setLoading(false);
         }
     }
 
-    async function fetchStats() {
+    async function fetchDashboardStats() {
         try {
-            console.log("📊 Fetching stats...");
+            // Fetch all data in parallel
+            const [
+                { data: licenses },
+                { data: users },
+                { data: recentLicenses }
+            ] = await Promise.all([
+                supabase.from("licenses").select("amount, created_at, status"),
+                supabase.from("profiles").select("id, created_at"),
+                supabase
+                    .from("licenses")
+                    .select("amount, created_at")
+                    .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+                    .order("created_at", { ascending: true })
+            ]);
 
-            // Fetch revenue
-            const { data: invoices, error: invoicesError } = await supabase
-                .from("invoices")
-                .select("amount")
-                .eq("status", "paid");
+            // Calculate total revenue
+            const totalRevenue = (licenses || []).reduce((sum, l) => sum + (l.amount || 0), 0) / 100;
 
-            if (invoicesError) {
-                console.error("Invoices error:", invoicesError);
-            }
+            // Calculate growth (last 30 days vs previous 30 days)
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
 
-            const totalRevenue = invoices?.reduce((sum: number, inv: any) => sum + inv.amount, 0) || 0;
+            const recentRevenue = (licenses || [])
+                .filter(l => new Date(l.created_at) > thirtyDaysAgo)
+                .reduce((sum, l) => sum + (l.amount || 0), 0) / 100;
 
-            // Fetch users count
-            const { count: totalUsers, error: usersError } = await supabase
-                .from("profiles")
-                .select("*", { count: "exact", head: true });
+            const previousRevenue = (licenses || [])
+                .filter(l => {
+                    const date = new Date(l.created_at);
+                    return date > sixtyDaysAgo && date <= thirtyDaysAgo;
+                })
+                .reduce((sum, l) => sum + (l.amount || 0), 0) / 100;
 
-            if (usersError) {
-                console.error("Users count error:", usersError);
-            }
+            const revenueGrowth = previousRevenue > 0
+                ? ((recentRevenue - previousRevenue) / previousRevenue) * 100
+                : 0;
 
-            // Fetch licenses
-            const { count: activeLicenses, error: licensesError } = await supabase
-                .from("licenses")
-                .select("*", { count: "exact", head: true })
-                .eq("status", "active");
+            // User growth
+            const recentUsers = (users || []).filter(u => new Date(u.created_at) > thirtyDaysAgo).length;
+            const previousUsers = (users || []).filter(u => {
+                const date = new Date(u.created_at);
+                return date > sixtyDaysAgo && date <= thirtyDaysAgo;
+            }).length;
 
-            if (licensesError) {
-                console.error("Licenses error:", licensesError);
-            }
+            const userGrowth = previousUsers > 0
+                ? ((recentUsers - previousUsers) / previousUsers) * 100
+                : 0;
 
-            // Fetch recent payments
-            const { data: recentPayments, error: paymentsError } = await supabase
-                .from("invoices")
-                .select("*")
-                .order("created_at", { ascending: false })
-                .limit(10);
+            // Revenue by day (last 30 days)
+            const revenueByDay = Array.from({ length: 30 }, (_, i) => {
+                const date = new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayRevenue = (recentLicenses || [])
+                    .filter(l => l.created_at.startsWith(dateStr))
+                    .reduce((sum, l) => sum + (l.amount || 0), 0) / 100;
 
-            if (paymentsError) {
-                console.error("Recent payments error:", paymentsError);
-            }
+                return {
+                    date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+                    revenue: dayRevenue
+                };
+            });
 
-            console.log("✅ Stats fetched successfully");
+            // Users by day (last 30 days)
+            const usersByDay = Array.from({ length: 30 }, (_, i) => {
+                const date = new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000);
+                const dateStr = date.toISOString().split('T')[0];
+                const dayUsers = (users || [])
+                    .filter(u => u.created_at.startsWith(dateStr))
+                    .length;
+
+                return {
+                    date: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+                    users: dayUsers
+                };
+            });
 
             setStats({
-                totalRevenue: totalRevenue / 100,
-                totalUsers: totalUsers || 0,
-                activeLicenses: activeLicenses || 0,
+                totalRevenue,
+                totalUsers: users?.length || 0,
+                activeLicenses: (licenses || []).filter(l => l.status === 'active').length,
                 failedPayments: 0,
-                recentPayments: recentPayments || [],
-                systemHealth: {
-                    supabase: "healthy",
-                    razorpay: "healthy",
-                },
+                revenueGrowth,
+                userGrowth,
+                revenueByDay,
+                usersByDay
             });
 
             setLoading(false);
-
-        } catch (error: any) {
+        } catch (error) {
             console.error("Failed to fetch stats:", error);
             setError("Failed to load dashboard data");
             setLoading(false);
         }
     }
 
-    // Show error state with debug info
-    if (error && debugInfo) {
+    if (!authorized && !loading) {
         return (
-            <div className="min-h-screen bg-background p-8">
-                <div className="max-w-4xl mx-auto">
-                    <Card className="border-red-500">
-                        <CardHeader>
-                            <CardTitle className="text-red-500 flex items-center gap-2">
-                                <XCircle className="w-5 h-5" />
-                                Admin Access Denied
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg">
-                                <p className="font-semibold text-red-700 dark:text-red-300">
-                                    {error}
-                                </p>
-                            </div>
-
-                            <div className="bg-muted p-4 rounded-lg">
-                                <h3 className="font-semibold mb-2">Debug Information:</h3>
-                                <pre className="text-xs overflow-auto">
-                                    {JSON.stringify(debugInfo, null, 2)}
-                                </pre>
-                            </div>
-
-                            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
-                                <h3 className="font-semibold mb-2 text-blue-700 dark:text-blue-300">
-                                    🔧 How to Fix:
-                                </h3>
-                                <ol className="list-decimal list-inside space-y-2 text-sm">
-                                    <li>Open Supabase Dashboard → SQL Editor</li>
-                                    <li>Run the <code className="bg-muted px-2 py-1 rounded">quick_fix_admin.sql</code> script</li>
-                                    <li>Refresh this page</li>
-                                </ol>
-
-                                <div className="mt-4 p-3 bg-white dark:bg-black rounded border">
-                                    <p className="text-xs font-mono">
-                                        {debugInfo.hint || "UPDATE profiles SET is_super_admin = TRUE WHERE id = 'your-user-id';"}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-4">
-                                <Link
-                                    href="/"
-                                    className="px-4 py-2 border rounded hover:bg-muted"
-                                >
-                                    ← Back to Home
-                                </Link>
-                                <button
-                                    onClick={() => window.location.reload()}
-                                    className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                                >
-                                    🔄 Retry
-                                </button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+            <div className="min-h-screen bg-background flex items-center justify-center p-4">
+                <Card className="max-w-md w-full border-red-500">
+                    <CardHeader>
+                        <CardTitle className="text-red-500 flex items-center gap-2">
+                            <Shield className="w-5 h-5" />
+                            Access Denied
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground mb-4">{error}</p>
+                        <p className="text-sm text-muted-foreground">
+                            You need super admin privileges to access this page.
+                        </p>
+                        <Button asChild className="w-full mt-4">
+                            <Link href="/">Go Home</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
@@ -276,101 +197,222 @@ export default function AdminDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-background p-4 md:p-8">
-            <div className="max-w-7xl mx-auto">
-                <div className="mb-8 flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold">Super Admin Dashboard</h1>
-                        <p className="text-muted-foreground">Real-time metrics and system health</p>
+        <div className="min-h-screen bg-background">
+            {/* Header */}
+            <div className="border-b border-border bg-card">
+                <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-2xl font-bold">Super Admin Dashboard</h1>
+                            <p className="text-sm text-muted-foreground">
+                                {BRAND_CONFIG.product.name} Platform Management
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Link href="/admin/users">
+                                <Button variant="outline" size="sm">
+                                    <Users className="w-4 h-4 mr-2" />
+                                    Users
+                                </Button>
+                            </Link>
+                            <Link href="/">
+                                <Button variant="ghost" size="sm">
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Back to Site
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
-                    <Link
-                        href="/"
-                        className="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:border-yellow-500 transition-colors"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Site
-                    </Link>
                 </div>
+            </div>
 
+            {/* Main Content */}
+            <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
                 {/* Key Metrics */}
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Total Revenue
-                            </CardTitle>
+                            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
-                                ₹{stats?.totalRevenue.toLocaleString('en-IN') || 0}
+                                ₹{stats?.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </div>
+                            <p className="text-xs text-muted-foreground">
+                                <span className={stats && stats.revenueGrowth > 0 ? "text-green-500" : "text-red-500"}>
+                                    {stats && stats.revenueGrowth > 0 ? "+" : ""}
+                                    {stats?.revenueGrowth.toFixed(1)}%
+                                </span>
+                                {" "}from last month
+                            </p>
                         </CardContent>
                     </Card>
 
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Total Users
-                            </CardTitle>
+                            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
                             <Users className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">
-                                {stats?.totalUsers || 0}
-                            </div>
+                            <div className="text-2xl font-bold">{stats?.totalUsers}</div>
+                            <p className="text-xs text-muted-foreground">
+                                <span className={stats && stats.userGrowth > 0 ? "text-green-500" : "text-red-500"}>
+                                    {stats && stats.userGrowth > 0 ? "+" : ""}
+                                    {stats?.userGrowth.toFixed(1)}%
+                                </span>
+                                {" "}from last month
+                            </p>
                         </CardContent>
                     </Card>
 
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Active Licenses
-                            </CardTitle>
-                            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                            <CardTitle className="text-sm font-medium">Active Licenses</CardTitle>
+                            <CreditCard className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">
-                                {stats?.activeLicenses || 0}
-                            </div>
+                            <div className="text-2xl font-bold">{stats?.activeLicenses}</div>
+                            <p className="text-xs text-muted-foreground">
+                                Lifetime purchases
+                            </p>
                         </CardContent>
                     </Card>
 
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                System Health
-                            </CardTitle>
-                            <Activity className="h-4 w-4 text-muted-foreground" />
+                            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-green-500">
-                                ✓ Healthy
+                            <div className="text-2xl font-bold">
+                                {stats ? ((stats.activeLicenses / stats.totalUsers) * 100).toFixed(1) : 0}%
                             </div>
+                            <p className="text-xs text-muted-foreground">
+                                Users to customers
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* Recent Payments */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Recent Payments</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {stats?.recentPayments && stats.recentPayments.length > 0 ? (
-                            <div className="space-y-2">
-                                {stats.recentPayments.map((payment: any) => (
-                                    <div key={payment.id} className="flex justify-between items-center p-2 border rounded">
-                                        <span className="text-sm">{payment.id}</span>
-                                        <span className="font-semibold">₹{(payment.amount / 100).toLocaleString('en-IN')}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-muted-foreground">No recent payments</p>
-                        )}
-                    </CardContent>
-                </Card>
+                {/* Charts */}
+                <div className="grid lg:grid-cols-2 gap-6 mb-8">
+                    {/* Revenue Chart */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Revenue (Last 30 Days)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={stats?.revenueByDay}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                                    <XAxis
+                                        dataKey="date"
+                                        tick={{ fontSize: 12 }}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis tick={{ fontSize: 12 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: '#1f2937',
+                                            border: '1px solid #374151',
+                                            borderRadius: '6px'
+                                        }}
+                                        formatter={(value: number | undefined) =>
+                                            value !== undefined ? `₹${value.toLocaleString('en-IN')}` : '₹0'
+                                        }
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#FACC15"
+                                        strokeWidth={2}
+                                        dot={{ fill: '#FACC15', r: 3 }}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* Users Chart */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">New Users (Last 30 Days)</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <BarChart data={stats?.usersByDay}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                                    <XAxis
+                                        dataKey="date"
+                                        tick={{ fontSize: 12 }}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis tick={{ fontSize: 12 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            backgroundColor: '#1f2937',
+                                            border: '1px solid #374151',
+                                            borderRadius: '6px'
+                                        }}
+                                    />
+                                    <Bar dataKey="users" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="grid md:grid-cols-3 gap-6">
+                    <Link href="/admin/users">
+                        <Card className="hover:border-yellow-500 transition-colors cursor-pointer">
+                            <CardHeader>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Users className="w-5 h-5" />
+                                    User Management
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground">
+                                    View all users, search, and impersonate for debugging
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </Link>
+
+                    <Link href="/admin/payments">
+                        <Card className="hover:border-yellow-500 transition-colors cursor-pointer">
+                            <CardHeader>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <CreditCard className="w-5 h-5" />
+                                    Payment Management
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground">
+                                    View transactions, issue refunds, manual activations
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </Link>
+
+                    <Link href="/admin/audit">
+                        <Card className="hover:border-yellow-500 transition-colors cursor-pointer">
+                            <CardHeader>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Activity className="w-5 h-5" />
+                                    Audit Logs
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground">
+                                    Track all platform activities and user actions
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                </div>
             </div>
         </div>
     );
