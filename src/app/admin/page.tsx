@@ -355,7 +355,11 @@ export default function AdminDashboard() {
                                             border: '1px solid #374151',
                                             borderRadius: '6px'
                                         }}
+                                        formatter={(value: number | undefined) =>
+                                            value !== undefined ? value.toString() : '0'
+                                        }
                                     />
+
                                     <Bar dataKey="users" fill="#10b981" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
