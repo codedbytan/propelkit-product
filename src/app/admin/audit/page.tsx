@@ -1,4 +1,6 @@
 // src/app/admin/audit/page.tsx
+// FIXED VERSION - No profiles join (handles RLS better)
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-    Search, Activity, Calendar, User,
+    Search, Activity, Calendar,
     ArrowLeft, Filter, Download
 } from "lucide-react";
 import Link from "next/link";
@@ -45,6 +47,8 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
     'payment_refund': { label: 'Payment Refund', color: 'bg-orange-500' },
     'organization_created': { label: 'Organization Created', color: 'bg-purple-500' },
     'member_invited': { label: 'Member Invited', color: 'bg-cyan-500' },
+    'test_action': { label: 'Test Action', color: 'bg-gray-500' },
+    'admin_dashboard_accessed': { label: 'Dashboard Access', color: 'bg-blue-500' },
 };
 
 export default function AuditLogs() {
@@ -53,6 +57,7 @@ export default function AuditLogs() {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterAction, setFilterAction] = useState<string>("all");
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const supabase = createClient();
 
     useEffect(() => {
@@ -102,35 +107,49 @@ export default function AuditLogs() {
             await fetchLogs();
         } catch (err) {
             console.error("Failed to check admin:", err);
+            setError("Failed to verify admin access");
             setLoading(false);
         }
     }
 
     async function fetchLogs() {
         try {
-            // Fetch all audit logs
-            const { data: auditLogs } = await supabase
+            // ✅ Fetch audit logs WITHOUT the profiles join
+            const { data: auditLogs, error: fetchError } = await supabase
                 .from("audit_logs")
-                .select(`
-                    id,
-                    user_id,
-                    action,
-                    details,
-                    created_at,
-                    profiles:user_id (email)
-                `)
+                .select("id, user_id, action, details, created_at")
                 .order("created_at", { ascending: false })
-                .limit(500); // Last 500 logs
+                .limit(500);
 
-            if (!auditLogs) {
+            if (fetchError) {
+                console.error("Fetch error:", fetchError);
+                setError(fetchError.message);
                 setLoading(false);
                 return;
             }
 
+            if (!auditLogs || auditLogs.length === 0) {
+                setLogs([]);
+                setFilteredLogs([]);
+                setLoading(false);
+                return;
+            }
+
+            // ✅ Fetch user emails separately (batch query)
+            const userIds = [...new Set(auditLogs.map(log => log.user_id))];
+            const { data: profiles } = await supabase
+                .from("profiles")
+                .select("id, email")
+                .in("id", userIds);
+
+            // Create a map of user_id to email
+            const emailMap = new Map(profiles?.map(p => [p.id, p.email]) || []);
+
+            // Combine data
             const logsData: AuditLog[] = auditLogs.map(log => ({
                 id: log.id,
                 user_id: log.user_id,
-                user_email: (log.profiles as any)?.email || "Unknown",
+                user_email: emailMap.get(log.user_id) || "Unknown User",
                 action: log.action,
                 details: log.details,
                 created_at: log.created_at,
@@ -139,8 +158,9 @@ export default function AuditLogs() {
             setLogs(logsData);
             setFilteredLogs(logsData);
             setLoading(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to fetch logs:", error);
+            setError(error.message || "Failed to load audit logs");
             setLoading(false);
         }
     }
@@ -178,6 +198,24 @@ export default function AuditLogs() {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <div className="animate-spin w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-4">
+                <Card className="max-w-md border-red-500">
+                    <CardHeader>
+                        <CardTitle className="text-red-500">Error Loading Audit Logs</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm mb-4">{error}</p>
+                        <Button onClick={() => window.location.reload()}>
+                            Try Again
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
@@ -315,7 +353,7 @@ export default function AuditLogs() {
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-black font-semibold text-xs">
-                                                            {log.user_email[0].toUpperCase()}
+                                                            {log.user_email[0]?.toUpperCase() || '?'}
                                                         </div>
                                                         <div className="text-sm">
                                                             {log.user_email}
