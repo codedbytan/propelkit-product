@@ -1,3 +1,6 @@
+// src/app/api/invoice/[licenseId]/route.ts
+// FIXED for Next.js 15 - params is now a Promise
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,14 +11,17 @@ const supabaseAdmin = createClient(
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { licenseId: string } }
+    { params }: { params: Promise<{ licenseId: string }> } // ✅ Changed to Promise
 ) {
     try {
+        // ✅ Await the params
+        const { licenseId } = await params;
+
         // Get invoice from database or generate new one
         const { data: license } = await supabaseAdmin
             .from("licenses")
             .select("*")
-            .eq("id", params.licenseId)
+            .eq("id", licenseId) // ✅ Use awaited licenseId
             .single();
 
         if (!license) {
@@ -32,7 +38,7 @@ export async function GET(
         return new NextResponse("PDF generation here", {
             headers: {
                 'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="invoice-${params.licenseId}.pdf"`
+                'Content-Disposition': `attachment; filename="invoice-${licenseId}.pdf"` // ✅ Use awaited licenseId
             }
         });
 
