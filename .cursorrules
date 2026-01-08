@@ -1,0 +1,277 @@
+# PropelKit - Cursor AI Rules
+# These rules help Cursor understand PropelKit's patterns and generate consistent code
+
+# Project Context
+You are working on PropelKit, a production-ready Next.js 15 SaaS boilerplate for Indian developers.
+
+## Tech Stack
+- Next.js 15 with App Router (NOT Pages Router)
+- TypeScript (strict mode)
+- Supabase (PostgreSQL + Auth + RLS)
+- Razorpay (payments - NOT Stripe)
+- Resend (emails)
+- Inngest (background jobs)
+- shadcn/ui (components)
+- Tailwind CSS
+- Zod (validation)
+- React Query (@tanstack/react-query)
+
+## Critical: Next.js 15 Breaking Changes
+
+### Route Parameters are Promises
+```typescript
+// ✅ CORRECT - Next.js 15
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params; // MUST await
+}
+
+// ❌ WRONG - Next.js 14 style (will break!)
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
+}
+```
+
+## File Structure Conventions
+
+### API Routes
+- Location: `src/app/api/[resource]/route.ts`
+- Use NextRequest/NextResponse
+- Always validate auth first
+- Use Zod for input validation
+- Return proper HTTP status codes
+
+### Pages
+- Location: `src/app/[route]/page.tsx`
+- Server Components by default
+- Add 'use client' only when needed (interactivity)
+- Export metadata for SEO
+
+### Components
+- UI components: `src/components/ui/`
+- Feature components: `src/components/[feature]/`
+- Use shadcn/ui patterns
+- Always add TypeScript types
+
+## Supabase Patterns
+
+### Server-side (API routes, Server Components)
+```typescript
+import { createClient } from '@/lib/supabase-server';
+const supabase = await createClient();
+```
+
+### Client-side (Client Components)
+```typescript
+import { createClient } from '@/lib/supabase/client';
+const supabase = createClient();
+```
+
+### Admin operations (bypass RLS)
+```typescript
+import { createServiceClient } from '@/lib/supabase/service';
+const supabase = createServiceClient();
+```
+
+## Database Rules
+
+### Always include these columns
+- `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+- `user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE`
+- `created_at TIMESTAMPTZ DEFAULT NOW()`
+- `updated_at TIMESTAMPTZ DEFAULT NOW()`
+
+### Always enable RLS
+```sql
+ALTER TABLE your_table ENABLE ROW LEVEL SECURITY;
+```
+
+### Standard policies pattern
+```sql
+CREATE POLICY "Users can view own data" ON table FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own data" ON table FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own data" ON table FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own data" ON table FOR DELETE USING (auth.uid() = user_id);
+```
+
+## Component Patterns
+
+### Buttons with loading state
+```typescript
+<Button onClick={handleClick} disabled={loading}>
+  {loading ? 'Loading...' : 'Submit'}
+</Button>
+```
+
+### Forms with react-hook-form + Zod
+```typescript
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z.object({...});
+const form = useForm({ resolver: zodResolver(schema) });
+```
+
+### Toast notifications
+```typescript
+import { useToast } from '@/hooks/use-toast';
+const { toast } = useToast();
+toast({ title: 'Success!', description: 'Action completed' });
+toast({ title: 'Error', description: 'Something went wrong', variant: 'destructive' });
+```
+
+## India-Specific Patterns
+
+### Currency formatting
+```typescript
+const formatINR = (amount: number) => 
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+```
+
+### Phone validation (Indian)
+```typescript
+z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian phone number')
+```
+
+### GSTIN validation
+```typescript
+z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GSTIN')
+```
+
+### GST calculation
+```typescript
+const calculateGST = (amount: number, isInterState: boolean) => {
+  const gstRate = 0.18; // 18% GST
+  const taxAmount = amount * gstRate;
+  
+  if (isInterState) {
+    return { igst: taxAmount, cgst: 0, sgst: 0, total: amount + taxAmount };
+  }
+  return { igst: 0, cgst: taxAmount / 2, sgst: taxAmount / 2, total: amount + taxAmount };
+};
+```
+
+## Razorpay (NOT Stripe!)
+
+### Creating order
+```typescript
+const razorpay = new Razorpay({
+  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
+
+const order = await razorpay.orders.create({
+  amount: amountInPaise, // ₹299.99 = 29999
+  currency: 'INR',
+  receipt: `order_${Date.now()}`,
+});
+```
+
+### Frontend checkout
+```typescript
+const options = {
+  key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+  amount: order.amount,
+  currency: 'INR',
+  order_id: order.id,
+  handler: async (response) => { /* verify payment */ },
+};
+const razorpay = new window.Razorpay(options);
+razorpay.open();
+```
+
+## Inngest Background Jobs
+
+### Creating a function
+```typescript
+import { inngest } from '@/lib/inngest/client';
+
+export const myFunction = inngest.createFunction(
+  { id: 'function-id' },
+  { event: 'namespace/event.name' },
+  async ({ event, step }) => {
+    await step.run('step-name', async () => { /* logic */ });
+    await step.sleep('wait', '1h');
+    return { success: true };
+  }
+);
+```
+
+### Triggering
+```typescript
+await inngest.send({ name: 'namespace/event.name', data: { ... } });
+```
+
+## Error Handling
+
+### API Routes
+```typescript
+try {
+  // logic
+  return NextResponse.json({ data }, { status: 200 });
+} catch (error) {
+  console.error('Error:', error);
+  return NextResponse.json(
+    { error: error instanceof Error ? error.message : 'Unknown error' },
+    { status: 500 }
+  );
+}
+```
+
+### Client Components
+```typescript
+try {
+  const res = await fetch('/api/endpoint');
+  if (!res.ok) throw new Error('Request failed');
+  const data = await res.json();
+} catch (error) {
+  toast({ title: 'Error', variant: 'destructive' });
+}
+```
+
+## Naming Conventions
+
+- Components: PascalCase (`UserProfile.tsx`)
+- Hooks: camelCase with 'use' prefix (`useAuth.ts`)
+- Utils: camelCase (`formatDate.ts`)
+- API routes: kebab-case folders (`user-preferences/route.ts`)
+- Database tables: snake_case (`user_profiles`)
+- Environment variables: SCREAMING_SNAKE_CASE (`RAZORPAY_KEY_SECRET`)
+
+## Import Order
+
+```typescript
+// 1. React/Next imports
+import { useState, useEffect } from 'react';
+import { NextRequest, NextResponse } from 'next/server';
+
+// 2. External libraries
+import { z } from 'zod';
+
+// 3. Internal utilities
+import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase-server';
+
+// 4. Components
+import { Button } from '@/components/ui/button';
+
+// 5. Types
+import type { User } from '@/types';
+```
+
+## Do NOT
+
+- Use `any` type - always define proper types
+- Skip error handling
+- Hardcode secrets or API keys
+- Forget RLS policies on tables
+- Use Pages Router patterns (use App Router)
+- Use Stripe (use Razorpay for this project)
+- Forget to await params in Next.js 15 dynamic routes
+- Import server-only code in client components
