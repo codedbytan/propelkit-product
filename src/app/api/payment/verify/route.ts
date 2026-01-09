@@ -1,3 +1,4 @@
+// src/app/api/payment/verify/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
@@ -5,6 +6,7 @@ import { z } from "zod";
 import { GSTCalculator, SAC_CODE_SAAS } from "@/lib/gst-engine";
 import { generateInvoicePDF } from "@/lib/invoice-generator";
 import { sendInvoiceEmail } from "@/lib/email";
+import { brand } from "@/config/brand";
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,125 +80,100 @@ export async function POST(req: Request) {
 
         const organizationId = membership.organization_id;
 
-        // 4. Check for duplicate processing
+        // 4. Get plan pricing from brand config
+        const isStarter = planKey.includes('starter');
+        const planName = isStarter ? brand.pricing.plans.starter.name : brand.pricing.plans.agency.name;
+        const amount = isStarter ? brand.pricing.plans.starter.priceInPaise : brand.pricing.plans.agency.priceInPaise;
+
+        // 5. Check if payment already processed (idempotency)
         const { data: existingLicense } = await supabaseAdmin
-            .from("licenses")
-            .select("id")
-            .eq("organization_id", organizationId)
-            .eq("plan_key", planKey)
-            .maybeSingle();
+            .from('licenses')
+            .select('id')
+            .eq('razorpay_payment_id', razorpayPaymentId)
+            .single();
 
         if (existingLicense) {
-            console.log("License already exists for this org and plan");
+            console.log("License already exists for this payment");
             return NextResponse.json({
                 success: true,
-                message: "License already activated"
+                licenseKey: existingLicense.id,
+                message: "Already processed"
             });
         }
 
-        // 5. Validate plan pricing
-        const prices: Record<string, number> = {
-            "starter_lifetime": 2999,
-            "pro_lifetime": 5999,
-            "starter_monthly": 999,
-            "pro_yearly": 29999,
-        };
-        const expectedAmount = prices[planKey];
-
         // 6. Generate License Key
-        const shortId = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const planName = planKey.includes("pro") ? "PRO" : "STARTER";
-        const licenseKey = `ACME-${planName}-${new Date().getFullYear()}-${shortId}`;
+        const licenseKey = crypto.randomBytes(16).toString('hex').toUpperCase();
 
-        // 7. Calculate GST
-        const totalAmountPaid = expectedAmount;
-        const taxRate = 0.18;
-        const taxableAmount = totalAmountPaid / (1 + taxRate);
-
-        const gstCalculator = new GSTCalculator({
-            sellerStateCode: "08",
-            sellerGSTIN: "YOUR_GSTIN_HERE",
-        });
-
-        const taxResult = gstCalculator.calculate(
-            { stateCode: "08" },
-            [{
-                description: `Acme SaaS ${planName} ${planKey.includes('lifetime') ? 'Lifetime' : planKey.includes('monthly') ? 'Monthly' : 'Yearly'} License`,
-                sacCode: SAC_CODE_SAAS,
-                unitPrice: taxableAmount,
-                quantity: 1
-            }]
-        );
-
-        // 8. Database Transaction: Insert License + Subscription + Invoice
-        const { error: licenseError } = await supabaseAdmin.from("licenses").insert({
-            user_id: user.id,
-            organization_id: organizationId,
-            plan_key: planKey,
-            license_key: licenseKey,
-            status: "active"
-        });
+        // 7. Create license record
+        const { error: licenseError } = await supabaseAdmin
+            .from('licenses')
+            .insert({
+                id: licenseKey,
+                user_id: user.id,
+                organization_id: organizationId,
+                plan: planKey,
+                status: 'active',
+                razorpay_payment_id: razorpayPaymentId,
+                razorpay_order_id: orderCreationId,
+                amount: amount,
+                activated_at: new Date().toISOString()
+            });
 
         if (licenseError) {
-            console.error("License Insert Error:", licenseError);
-            throw new Error("Failed to create license");
+            console.error("License creation error:", licenseError);
+            return NextResponse.json({ error: "Failed to create license" }, { status: 500 });
         }
 
-        // Create subscription record
-        const subType = planKey.includes('lifetime') ? 'lifetime' : 'recurring';
-        const { error: subError } = await supabaseAdmin.from("subscriptions").insert({
+        // 8. Record payment
+        await supabaseAdmin.from('payments').insert({
             user_id: user.id,
             organization_id: organizationId,
-            plan_id: planKey,
-            type: subType,
-            status: "active",
+            amount: amount,
+            currency: 'INR',
+            status: 'completed',
             razorpay_payment_id: razorpayPaymentId,
             razorpay_order_id: orderCreationId,
-            amount: totalAmountPaid * 100,
-            currency: "INR"
+            plan_key: planKey
         });
 
-        if (subError) {
-            console.error("Subscription Insert Error:", subError);
-        }
-
-        // Update organization status
-        await supabaseAdmin
-            .from("organizations")
-            .update({
-                subscription_status: "active",
-                subscription_plan: planKey.includes('pro') ? 'pro' : 'starter'
-            })
-            .eq("id", organizationId);
-
-        const { error: invoiceError } = await supabaseAdmin.from("invoices").insert({
-            id: razorpayPaymentId,
-            user_id: user.id,
-            organization_id: organizationId,
-            amount: totalAmountPaid * 100,
-            status: "paid",
-            currency: "INR"
-        });
-
-        if (invoiceError) {
-            console.error("Invoice Insert Error:", invoiceError);
-        }
-
-        // 9. Generate and Send Invoice
+        // 9. Generate invoice and send email
         try {
-            if (process.env.RESEND_API_KEY) {
-                const pdfBuffer = await generateInvoicePDF({
-                    invoiceNumber: taxResult.invoiceNumberSuggestion,
-                    date: new Date(),
-                    customerName: user.user_metadata?.full_name || "Valued Customer",
-                    customerAddress: "Not Provided",
-                    taxResult: taxResult,
-                    description: `Acme SaaS ${planName} ${planKey.includes('lifetime') ? 'Lifetime' : planKey.includes('monthly') ? 'Monthly' : 'Yearly'} License`
-                });
-                await sendInvoiceEmail(user.email, pdfBuffer, taxResult.invoiceNumberSuggestion);
-            }
+            // Calculate GST
+            const calculator = new GSTCalculator({
+                sellerStateCode: brand.company.address.stateCode,
+                sellerGSTIN: brand.company.gstin
+            });
+
+            const taxResult = calculator.calculate(
+                { stateCode: brand.company.address.stateCode },
+                [{
+                    description: `${brand.product.name} ${planName}`,
+                    sacCode: brand.invoice.sacCode,
+                    unitPrice: amount / 100,
+                    quantity: 1
+                }]
+            );
+
+            // Generate PDF
+            const pdfBuffer = await generateInvoicePDF({
+                invoiceNumber: taxResult.invoiceNumberSuggestion,
+                date: new Date(),
+                customerName: user.email.split('@')[0],
+                customerGSTIN: undefined,
+                taxResult: taxResult,
+                description: `${brand.product.name} ${planName} ${planKey.includes('lifetime') ? 'Lifetime' : planKey.includes('monthly') ? 'Monthly' : 'Yearly'} License`
+            });
+
+            // ✅ FIXED: Now passing all 4 required arguments including amount
+            await sendInvoiceEmail(
+                user.email,
+                pdfBuffer,
+                taxResult.invoiceNumberSuggestion,
+                amount  // ← Added the missing amount parameter
+            );
         } catch (emailErr) {
             console.error("Email sending failed:", emailErr);
+            // Don't fail the payment if email fails
         }
 
         // 10. Audit log
@@ -211,7 +188,12 @@ export async function POST(req: Request) {
             }
         });
 
-        return NextResponse.json({ success: true, licenseKey });
+        console.log(`✅ Payment verified and license created: ${licenseKey}`);
+
+        return NextResponse.json({
+            success: true,
+            licenseKey
+        });
 
     } catch (error: any) {
         console.error("Verification Error:", error);
