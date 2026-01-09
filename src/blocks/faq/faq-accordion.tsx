@@ -24,7 +24,7 @@ const defaultItems: FAQItem[] = [
   },
   {
     question: 'Do you offer refunds?',
-    answer: 'Yes, we offer a 14-day money-back guarantee. If you're not satisfied, contact us for a full refund.',
+    answer: 'Yes, we offer a 14-day money-back guarantee. If youre not satisfied, contact us for a full refund.',
   },
   {
     question: 'Can I use this for client projects?',
