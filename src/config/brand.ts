@@ -1,119 +1,271 @@
-// ============================================
-// 🎯 BRAND CONFIGURATION (SINGLE SOURCE OF TRUTH)
-// ============================================
-// This file is the SINGLE SOURCE OF TRUTH for all project branding.
-// AI assistants (Claude, Cursor, Windsurf, etc.) should ALWAYS reference
-// this file instead of hardcoding "PropelKit" or any other project names.
-// 
-// When AI generates code, it should:
-// 1. Import: import { brand } from '@/config/brand';
-// 2. Use: brand.name, brand.url, brand.company, etc.
-//
-// EXAMPLE:
-// ❌ WRONG:  const title = "PropelKit Dashboard";
-// ✅ RIGHT:  const title = `${brand.name} Dashboard`;
-//
-// This ensures that when customers customize their project,
-// ALL generated code automatically uses THEIR branding! 🚀
-// ============================================
+// src/config/brand.ts
+// ===========================================
+// 🎯 SINGLE SOURCE OF TRUTH FOR YOUR BRAND
+// ===========================================
+// This file controls ALL branding across your SaaS.
+// Update once, changes reflect everywhere.
 
 export const brand = {
     // ===========================================
-    // CORE BRAND IDENTITY
+    // PRODUCT IDENTITY
     // ===========================================
-    name: "PropelKit",                    // Your SaaS product name
-    tagline: "Ship Your SaaS in Days",    // Short description
-    url: "https://propelkit.dev",         // Production URL
-    company: "PropelKit",                 // Legal company name
+    name: "PropelKit",
+    tagline: "Ship Your SaaS in Days, Not Months",
+    description: "Next.js 15 SaaS boilerplate with Razorpay, GST invoicing, and multi-tenancy built for Indian developers",
 
-    // ===========================================
-    // SUPABASE CONFIGURATION
-    // ===========================================
-    supabase: {
-        url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    product: {
+        name: "PropelKit",
+        version: "1.0.0",
+        url: process.env.NEXT_PUBLIC_APP_URL || "https://propelkit.dev",
     },
 
     // ===========================================
-    // RAZORPAY CONFIGURATION (Indian Payments)
+    // COMPANY DETAILS
     // ===========================================
-    razorpay: {
-        keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-        keySecret: process.env.RAZORPAY_KEY_SECRET!,
+    company: {
+        legalName: "PropelKit Technologies Pvt Ltd",
+        gstin: "27AAAAA0000A1Z5", // ⚠️ IMPORTANT: Update with YOUR GSTIN
+        address: {
+            line1: "123 Startup Hub, Tech Park",
+            line2: "Mumbai, Maharashtra - 400001",
+            city: "Mumbai",
+            state: "Maharashtra",
+            stateCode: "27", // Maharashtra = 27
+            pincode: "400001",
+            country: "India",
+        },
+        pan: "AAAAA0000A", // ⚠️ IMPORTANT: Update with YOUR PAN
     },
 
     // ===========================================
-    // INNGEST CONFIGURATION (Background Jobs)
+    // CONTACT INFORMATION
     // ===========================================
-    inngest: {
-        appId: "propelkit-acme-prod",   // Inngest app identifier (must be unique)
-        appName: "PropelKit Product",   // Display name in Inngest dashboard
+    contact: {
+        email: "support@propelkit.dev",
+        phone: "+91-9876543210",
+        supportUrl: "https://propelkit.dev/support",
     },
 
     // ===========================================
     // EMAIL CONFIGURATION
     // ===========================================
     email: {
-        fromName: "PropelKit",
-        fromEmail: "support@propelkit.dev",
         fromSupport: "PropelKit Support <support@propelkit.dev>",
         fromBilling: "PropelKit Billing <billing@propelkit.dev>",
-        fromInvites: "PropelKit <invites@propelkit.dev>",
+        fromNoReply: "PropelKit <noreply@propelkit.dev>",
+        replyTo: "support@propelkit.dev",
     },
 
     // ===========================================
-    // SOCIAL & LINKS
-    // ===========================================
-    social: {
-        twitter: "https://twitter.com/propelkit",
-        github: "https://github.com/yourusername/propelkit",
-        discord: "https://discord.gg/propelkit",
-    },
-
-    // ===========================================
-    // PRICING (for display purposes)
+    // PRICING & CURRENCY
     // ===========================================
     pricing: {
         currency: "INR",
         currencySymbol: "₹",
         plans: {
             starter: {
-                name: "Starter License",
-                price: 2999,              // In rupees
-                priceInPaise: 299900,     // In paise (for Razorpay)
+                name: "Starter",
+                priceInPaise: 399900, // ₹3,999
+                price: 3999,
+                description: "Perfect for indie developers",
+                features: [
+                    "One-time payment",
+                    "Lifetime updates",
+                    "Email support",
+                    "Full source code",
+                ],
             },
             agency: {
-                name: "Agency License",
+                name: "Agency",
+                priceInPaise: 999900, // ₹9,999
                 price: 9999,
-                priceInPaise: 999900,
+                description: "For agencies and teams",
+                features: [
+                    "Everything in Starter",
+                    "Unlimited client projects",
+                    "Priority support",
+                    "Commercial license",
+                    "White-label ready",
+                ],
             },
         },
     },
 
     // ===========================================
-    // INVOICING
+    // GST & INVOICE SETTINGS
     // ===========================================
-    invoicing: {
-        companyName: "PropelKit",
-        address: "123 Tech Street, Bangalore, Karnataka 560001",
-        gstin: "29XXXXX1234X1ZX",  // Your GST Number
-        pan: "ABCDE1234F",         // Your PAN
-        email: "billing@propelkit.dev",
+    invoice: {
+        sacCode: "998314", // SAC code for Software Development Services
+        prefix: "PROP", // Invoice number prefix (e.g., PROP/24-25/0001)
+        taxRate: 0.18, // 18% GST
+        hsnCode: "998314", // Same as SAC for software services
     },
 
     // ===========================================
-    // FEATURES (for marketing & onboarding)
+    // RAZORPAY CONFIGURATION
     // ===========================================
-    features: {
-        authentication: true,
-        payments: true,
-        backgroundJobs: true,
-        emailNotifications: true,
-        gstInvoicing: true,
-        multiTenancy: true,
-        superAdminDashboard: true,
+    razorpay: {
+        keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "",
+        keySecret: process.env.RAZORPAY_KEY_SECRET || "",
+        webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "",
+        // Subscription plan IDs (create these in Razorpay Dashboard)
+        plans: {
+            monthly: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_MONTHLY || "",
+            yearly: process.env.NEXT_PUBLIC_RAZORPAY_PLAN_YEARLY || "",
+        },
+    },
+
+    // ===========================================
+    // INNGEST CONFIGURATION (Background Jobs)
+    // ===========================================
+    inngest: {
+        appId: "propelkit-acme-prod",   // ← Inngest app identifier (must be unique)
+        appName: "PropelKit Product",   // ← Display name in Inngest dashboard
+    },
+
+    // ===========================================
+    // SOCIAL LINKS
+    // ===========================================
+    social: {
+        twitter: "https://twitter.com/propelkit",
+        github: "https://github.com/propelkit",
+        linkedin: "https://linkedin.com/company/propelkit",
+        discord: "https://discord.gg/propelkit",
+    },
+
+    // ===========================================
+    // FEATURES LIST (for marketing pages)
+    // ===========================================
+    features: [
+        "Multi-tenancy with organizations & teams",
+        "Razorpay payment integration",
+        "GST-compliant invoicing",
+        "Email with Resend",
+        "Background jobs with Inngest",
+        "Supabase authentication",
+        "Row Level Security (RLS)",
+        "shadcn/ui components",
+    ],
+
+    // ===========================================
+    // SEO METADATA
+    // ===========================================
+    seo: {
+        title: "PropelKit - Next.js SaaS Boilerplate for Indian Developers",
+        description: "Ship your SaaS faster with PropelKit. Pre-built Razorpay payments, GST invoicing, multi-tenancy, and more.",
+        keywords: "nextjs saas, india saas boilerplate, razorpay integration, gst invoicing, supabase auth",
+        ogImage: "/og-image.png",
+        twitterHandle: "@propelkit",
+    },
+
+    // ===========================================
+    // LEGAL PAGES
+    // ===========================================
+    legal: {
+        termsUrl: "/terms",
+        privacyUrl: "/privacy",
+        refundUrl: "/refund-policy",
     },
 };
+
+// ===========================================
+// HELPER FUNCTIONS (Exported for use across app)
+// ===========================================
+
+/**
+ * Format amount in paise to currency string
+ * @param amountInPaise - Amount in paise (e.g., 399900)
+ * @returns Formatted string (e.g., "₹3,999")
+ */
+export function formatPrice(amountInPaise: number): string {
+    const amountInRupees = amountInPaise / 100;
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: brand.pricing.currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    }).format(amountInRupees);
+}
+
+/**
+ * Generate sequential invoice number
+ * @param sequenceId - Unique sequence ID (license ID, payment ID, etc.)
+ * @returns Formatted invoice number (e.g., "PROP/24-25/0001")
+ */
+export function generateInvoiceNumber(sequenceId: string): string {
+    // Get current financial year (Apr-Mar in India)
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed (0=Jan, 3=Apr)
+
+    // Financial year starts in April (month 3)
+    const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+    const fyEndYear = fyStartYear + 1;
+
+    // Format: YY-YY (e.g., 24-25)
+    const fy = `${fyStartYear % 100}-${fyEndYear % 100}`;
+
+    // Use last 4 characters of sequenceId as invoice number
+    const invoiceNum = sequenceId.slice(-4).padStart(4, '0');
+
+    return `${brand.invoice.prefix}/${fy}/${invoiceNum}`;
+}
+
+/**
+ * Calculate GST breakdown
+ * @param amountInPaise - Taxable amount in paise
+ * @param isSameState - Whether buyer is in same state as seller
+ * @returns Object with GST breakdown
+ */
+export function calculateGST(amountInPaise: number, isSameState: boolean = true) {
+    const taxableAmount = amountInPaise / 100;
+    const gstRate = brand.invoice.taxRate;
+    const totalGST = taxableAmount * gstRate;
+
+    if (isSameState) {
+        // Intra-state: Split into CGST + SGST
+        return {
+            taxableAmount,
+            cgst: totalGST / 2,
+            sgst: totalGST / 2,
+            igst: 0,
+            totalTax: totalGST,
+            totalAmount: taxableAmount + totalGST,
+        };
+    } else {
+        // Inter-state: IGST only
+        return {
+            taxableAmount,
+            cgst: 0,
+            sgst: 0,
+            igst: totalGST,
+            totalTax: totalGST,
+            totalAmount: taxableAmount + totalGST,
+        };
+    }
+}
+
+/**
+ * Validate GSTIN format
+ * @param gstin - GSTIN string
+ * @returns true if valid format
+ */
+export function validateGSTIN(gstin: string): boolean {
+    const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    return gstinRegex.test(gstin);
+}
+
+/**
+ * Extract state code from GSTIN
+ * @param gstin - GSTIN string
+ * @returns State code (first 2 digits)
+ */
+export function getStateCodeFromGSTIN(gstin: string): string {
+    if (!validateGSTIN(gstin)) {
+        throw new Error(`Invalid GSTIN format: ${gstin}`);
+    }
+    return gstin.substring(0, 2);
+}
 
 // ===========================================
 // TYPE EXPORTS (for TypeScript autocomplete)
@@ -146,26 +298,17 @@ await resend.emails.send({
   html: `<p>Thank you for joining ${brand.name}!</p>`,
 });
 
-EXAMPLE 3: Page Metadata
+EXAMPLE 3: Format Price
 ---------------------------
-import { brand } from '@/config/brand';
+import { formatPrice } from '@/config/brand';
 
-export const metadata = {
-  title: `${brand.name} - ${brand.tagline}`,
-  description: `Build and ship your SaaS with ${brand.name}`,
-};
+const displayPrice = formatPrice(399900); // "₹3,999"
 
-EXAMPLE 4: API Route
+EXAMPLE 4: Generate Invoice Number
 ---------------------------
-import { brand } from '@/config/brand';
+import { generateInvoiceNumber } from '@/config/brand';
 
-export async function GET() {
-  return Response.json({
-    name: brand.name,
-    url: brand.url,
-    features: brand.features,
-  });
-}
+const invoiceNum = generateInvoiceNumber(licenseId); // "PROP/24-25/0001"
 
 EXAMPLE 5: Payment Checkout
 ---------------------------
@@ -180,5 +323,30 @@ const razorpay = new Razorpay({
 const order = await razorpay.orders.create({
   amount: brand.pricing.plans.starter.priceInPaise,
   currency: brand.pricing.currency,
+});
+
+EXAMPLE 6: Calculate GST
+---------------------------
+import { calculateGST } from '@/config/brand';
+
+const gst = calculateGST(399900, true); // Same state
+console.log(gst.cgst, gst.sgst, gst.totalAmount);
+
+EXAMPLE 7: Validate GSTIN
+---------------------------
+import { validateGSTIN, getStateCodeFromGSTIN } from '@/config/brand';
+
+if (validateGSTIN(customerGSTIN)) {
+  const stateCode = getStateCodeFromGSTIN(customerGSTIN);
+}
+
+EXAMPLE 8: Inngest Configuration
+---------------------------
+import { brand } from '@/config/brand';
+import { Inngest } from 'inngest';
+
+export const inngest = new Inngest({
+  id: brand.inngest.appId,
+  name: brand.inngest.appName,
 });
 */
