@@ -1,113 +1,10 @@
 // src/lib/inngest-webhooks-pdf.ts
-// Webhook retries, PDF generation, and team invitations
 import { inngest } from "./inngest";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 import { Resend } from "resend";
-import Razorpay from "razorpay";
+import { brand } from "@/config/brand";  // ✅ FIXED: Use brand config
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const ADMIN_EMAIL = "cgoyalswm@gmail.com"; // ✅ Your email
-
-const razorpay = new Razorpay({
-    key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
-// ============================================
-// WEBHOOK RETRY LOGIC
-// ============================================
-export const retryFailedWebhook = inngest.createFunction(
-    {
-        id: "retry-failed-webhook",
-        name: "Retry Failed Webhook",
-        retries: 5,
-    },
-    { event: "webhook/failed" },
-    async ({ event, step, attempt }) => {
-        const { eventId, eventType, payload } = event.data;
-
-        console.log(`🔄 Retry attempt ${attempt} for webhook ${eventId}`);
-
-        const delays = ["1m", "5m", "30m", "2h", "12h"];
-
-        if (attempt > 1) {
-            await step.sleep(`wait-before-retry-${attempt}`, delays[attempt - 2] || "1h");
-        }
-
-        const result = await step.run("process-webhook", async () => {
-            try {
-                await supabaseAdmin.from("webhook_events").insert({
-                    event_id: `${eventId}-retry-${attempt}`,
-                    event_type: eventType,
-                    payload: payload,
-                    status: "retrying",
-                });
-
-                if (eventType === "payment.captured") {
-                    await processPaymentWebhook(payload);
-                } else if (eventType === "subscription.charged") {
-                    await processSubscriptionWebhook(payload);
-                }
-
-                await supabaseAdmin
-                    .from("webhook_events")
-                    .update({ status: "processed", processed_at: new Date().toISOString() })
-                    .eq("event_id", `${eventId}-retry-${attempt}`);
-
-                console.log(`✅ Webhook ${eventId} processed on attempt ${attempt}`);
-
-                return { success: true, attempt };
-            } catch (retryError: any) {
-                console.error(`❌ Retry ${attempt} failed:`, retryError.message);
-
-                await supabaseAdmin
-                    .from("webhook_events")
-                    .update({ status: "failed", processed_at: new Date().toISOString() })
-                    .eq("event_id", `${eventId}-retry-${attempt}`);
-
-                throw retryError;
-            }
-        });
-
-        return result;
-    }
-);
-
-async function processPaymentWebhook(payload: any) {
-    const paymentId = payload.payment_id;
-    const orderId = payload.order_id;
-
-    const payment = await razorpay.payments.fetch(paymentId);
-
-    await supabaseAdmin
-        .from("invoices")
-        .update({ status: "paid", razorpay_payment_id: paymentId })
-        .eq("id", orderId);
-
-    console.log(`✅ Payment ${paymentId} processed`);
-}
-
-async function processSubscriptionWebhook(payload: any) {
-    const subscriptionId = payload.subscription_id;
-    const paymentId = payload.payment_id;
-
-    const subscription = await razorpay.subscriptions.fetch(subscriptionId);
-
-    const currentEnd = subscription.current_end
-        ? new Date(subscription.current_end * 1000).toISOString()
-        : null;
-
-    await supabaseAdmin
-        .from("subscriptions")
-        .update({
-            status: "active",
-            razorpay_payment_id: paymentId,
-            current_period_end: currentEnd,
-        })
-        .eq("razorpay_subscription_id", subscriptionId);
-
-    console.log(`✅ Subscription ${subscriptionId} processed`);
-}
 
 // ============================================
 // ASYNC PDF GENERATION
@@ -117,7 +14,7 @@ export const generateInvoicePDF = inngest.createFunction(
         id: "generate-invoice-pdf",
         name: "Generate Invoice PDF",
     },
-    { event: "invoice/generate" },
+    { event: "invoice.generated" },  // ✅ FIXED: DOT instead of slash
     async ({ event, step }) => {
         const { invoiceId, userId, email, organizationId } = event.data;
 
@@ -161,9 +58,9 @@ Customer: ${invoiceData.user?.full_name || 'N/A'}
             const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
             await resend.emails.send({
-                from: "PropelKit Billing <billing@propelkit.dev>",
+                from: brand.email.fromBilling,  // ✅ FIXED: Use brand config
                 to: email,
-                subject: `Invoice ${invoiceId} - PropelKit`,
+                subject: `Invoice ${invoiceId} - ${brand.name}`,  // ✅ FIXED: Use brand config
                 html: `
           <!DOCTYPE html>
           <html>
@@ -215,7 +112,7 @@ export const sendOrganizationInvite = inngest.createFunction(
         id: "send-organization-invite",
         name: "Send Organization Invitation",
     },
-    { event: "organization/member-invited" },
+    { event: "organization.member-invited" },  // ✅ FIXED: DOT instead of SLASH
     async ({ event, step }) => {
         const { organizationId, email, invitedBy, role, inviteToken } = event.data;
 
@@ -241,18 +138,18 @@ export const sendOrganizationInvite = inngest.createFunction(
         });
 
         await step.run("send-invite-email", async () => {
-            const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${inviteToken}`;
+            const inviteUrl = `${brand.product.url}/invite/${inviteToken}`;  // ✅ FIXED: Use brand config
 
             await resend.emails.send({
-                from: "PropelKit <invites@propelkit.dev>",
+                from: brand.email.fromSupport,  // ✅ FIXED: Use brand config
                 to: email,
-                subject: `You've been invited to join ${orgData.name} on PropelKit`,
+                subject: `You've been invited to join ${orgData.name} on ${brand.name}`,  // ✅ FIXED: Use brand config
                 html: `
           <!DOCTYPE html>
           <html>
           <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #FACC15 0%, #F59E0B 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-              <h1 style="color: #000; margin: 0;">You're Invited! 🎉</h1>
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: #fff; margin: 0;">You're Invited! 🎉</h1>
             </div>
             
             <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
@@ -260,7 +157,7 @@ export const sendOrganizationInvite = inngest.createFunction(
               
               <p style="font-size: 16px;">
                 <strong>${inviterData?.full_name || inviterData?.email}</strong> has invited you to join 
-                <strong>${orgData.name}</strong> on PropelKit as a <strong>${role}</strong>.
+                <strong>${orgData.name}</strong> on ${brand.name} as a <strong>${role}</strong>.
               </p>
               
               <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -274,7 +171,7 @@ export const sendOrganizationInvite = inngest.createFunction(
               
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${inviteUrl}" 
-                   style="display: inline-block; background: #000; color: #fff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                   style="display: inline-block; background: #10b981; color: #fff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                   Accept Invitation
                 </a>
               </div>
@@ -282,6 +179,12 @@ export const sendOrganizationInvite = inngest.createFunction(
               <p style="font-size: 12px; color: #999; text-align: center;">
                 This invitation will expire in 7 days.<br>
                 If you didn't expect this, you can safely ignore this email.
+              </p>
+              
+              <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+              
+              <p style="font-size: 12px; color: #999; text-align: center;">
+                © ${new Date().getFullYear()} ${brand.company.legalName}
               </p>
             </div>
           </body>

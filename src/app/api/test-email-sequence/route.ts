@@ -1,3 +1,4 @@
+// src/app/api/test-email-sequence/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { inngest } from "@/lib/inngest";
 
@@ -5,9 +6,10 @@ export async function POST(request: NextRequest) {
     try {
         const { email } = await request.json();
 
-        // Trigger onboarding sequence
+        // ✅ FIXED: Changed from "user/signed-up" to "user.signed-up"
+        // Inngest event names use DOTS not slashes!
         await inngest.send({
-            name: "user/signed-up",
+            name: "user.signed-up",  // ✅ FIXED: DOT instead of SLASH
             data: {
                 userId: "test-user-123",
                 email: email || "test@example.com",

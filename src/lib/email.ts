@@ -118,18 +118,14 @@ export async function sendWelcomeEmail(to: string, userName: string) {
                 <html>
                 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                     <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                        <h1 style="color: #fff; margin: 0;">Welcome to ${brand.name}! 🚀</h1>
+                        <h1 style="color: #fff; margin: 0;">Welcome to ${brand.name}!</h1>
                     </div>
                     
                     <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
                         <p style="font-size: 16px;">Hi ${userName},</p>
                         
                         <p style="font-size: 16px;">
-                            Welcome aboard! We're excited to have you with us.
-                        </p>
-                        
-                        <p style="font-size: 16px;">
-                            ${brand.tagline}
+                            Welcome to ${brand.name}! We're thrilled to have you on board.
                         </p>
                         
                         <div style="margin: 30px 0; text-align: center;">
@@ -139,8 +135,8 @@ export async function sendWelcomeEmail(to: string, userName: string) {
                             </a>
                         </div>
                         
-                        <p style="font-size: 14px; color: #666;">
-                            Need help? We're here for you at ${brand.contact.email}
+                        <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                            Questions? We're here for you at ${brand.contact.email}
                         </p>
                         
                         <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
@@ -155,6 +151,150 @@ export async function sendWelcomeEmail(to: string, userName: string) {
     });
   } catch (error) {
     console.error('❌ Failed to send welcome email:', error);
+  }
+}
+
+// ============================================
+// INVITE EMAIL (for organization invitations)
+// ============================================
+export async function sendInviteEmail(params: {
+  to: string;
+  organizationName: string;
+  inviteToken: string;
+  role: 'admin' | 'member';
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.error('❌ RESEND_API_KEY missing');
+    return;
+  }
+
+  const inviteUrl = `${brand.product.url}/invite/${params.inviteToken}`;
+
+  try {
+    await resend.emails.send({
+      from: brand.email.fromSupport,
+      to: params.to,
+      subject: `You've been invited to join ${params.organizationName}`,
+      html: `
+                <!DOCTYPE html>
+                <html>
+                <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1 style="color: #fff; margin: 0;">You're Invited! 🎉</h1>
+                    </div>
+                    
+                    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                        <p style="font-size: 16px;">Hi there,</p>
+                        
+                        <p style="font-size: 16px;">
+                            You've been invited to join <strong>${params.organizationName}</strong> on ${brand.name} as a <strong>${params.role}</strong>.
+                        </p>
+                        
+                        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3 style="margin-top: 0;">What you'll get:</h3>
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                <li>Access to ${params.organizationName}'s workspace</li>
+                                <li>${params.role === 'admin' ? 'Admin privileges - manage team & settings' : 'Member access - collaborate with the team'}</li>
+                                <li>Shared resources and projects</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="margin: 30px 0; text-align: center;">
+                            <a href="${inviteUrl}" 
+                               style="display: inline-block; background: #10b981; color: #fff; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                                Accept Invitation
+                            </a>
+                        </div>
+                        
+                        <p style="font-size: 12px; color: #999; text-align: center;">
+                            This invitation will expire in 7 days.<br>
+                            If you didn't expect this, you can safely ignore this email.
+                        </p>
+                        
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                        
+                        <p style="font-size: 12px; color: #999; text-align: center;">
+                            © ${new Date().getFullYear()} ${brand.company.legalName}
+                        </p>
+                    </div>
+                </body>
+                </html>
+            `,
+    });
+
+    console.log(`✅ Invite email sent to ${params.to} for ${params.organizationName}`);
+  } catch (error) {
+    console.error('❌ Failed to send invite email:', error);
+  }
+}
+
+// ============================================
+// ORGANIZATION WELCOME EMAIL (after creating org)
+// ============================================
+export async function sendOrganizationWelcomeEmail(params: {
+  to: string;
+  organizationName: string;
+  userName: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.error('❌ RESEND_API_KEY missing');
+    return;
+  }
+
+  try {
+    await resend.emails.send({
+      from: brand.email.fromSupport,
+      to: params.to,
+      subject: `${params.organizationName} is ready on ${brand.name}!`,
+      html: `
+                <!DOCTYPE html>
+                <html>
+                <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1 style="color: #fff; margin: 0;">Organization Created! 🚀</h1>
+                    </div>
+                    
+                    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                        <p style="font-size: 16px;">Hi ${params.userName},</p>
+                        
+                        <p style="font-size: 16px;">
+                            Congratulations! Your organization <strong>${params.organizationName}</strong> has been successfully created on ${brand.name}.
+                        </p>
+                        
+                        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h3 style="margin-top: 0;">Next steps:</h3>
+                            <ol style="margin: 10px 0; padding-left: 20px;">
+                                <li>Invite team members</li>
+                                <li>Set up your workspace</li>
+                                <li>Start collaborating</li>
+                            </ol>
+                        </div>
+                        
+                        <div style="margin: 30px 0; text-align: center;">
+                            <a href="${brand.product.url}/dashboard" 
+                               style="display: inline-block; background: #10b981; color: #fff; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                                Go to Dashboard
+                            </a>
+                        </div>
+                        
+                        <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                            Need help? Contact us at ${brand.contact.email}
+                        </p>
+                        
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                        
+                        <p style="font-size: 12px; color: #999; text-align: center;">
+                            © ${new Date().getFullYear()} ${brand.company.legalName}
+                        </p>
+                    </div>
+                </body>
+                </html>
+            `,
+    });
+
+    console.log(`✅ Organization welcome email sent to ${params.to}`);
+  } catch (error) {
+    console.error('❌ Failed to send organization welcome email:', error);
   }
 }
 
@@ -276,7 +416,6 @@ export async function sendSubscriptionChargedEmail(params: {
                         <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
                         
                         <p style="font-size: 12px; color: #999; text-align: center;">
-                            ${brand.contact.email}<br>
                             © ${new Date().getFullYear()} ${brand.company.legalName}
                         </p>
                     </div>
@@ -295,6 +434,7 @@ export async function sendSubscriptionChargedEmail(params: {
 export async function sendSubscriptionCancelledEmail(params: {
   to: string;
   organizationName: string;
+  planName: string;
   endDate: string;
 }) {
   if (!process.env.RESEND_API_KEY) {
@@ -304,39 +444,55 @@ export async function sendSubscriptionCancelledEmail(params: {
 
   try {
     await resend.emails.send({
-      from: brand.email.fromSupport,
+      from: brand.email.fromBilling,
       to: params.to,
-      subject: `${brand.name} Subscription Cancelled`,
+      subject: `Subscription Cancelled - ${brand.name}`,
       html: `
                 <!DOCTYPE html>
                 <html>
                 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h1>Subscription Cancelled</h1>
-                    <p>Your subscription for <strong>${params.organizationName}</strong> has been cancelled.</p>
-                    
-                    <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107;">
-                        <p style="margin: 0;">You'll continue to have access until <strong>${new Date(params.endDate).toLocaleDateString('en-IN')}</strong></p>
+                    <div style="background: #f9f9f9; padding: 30px; border-radius: 10px;">
+                        <h1 style="color: #333; margin: 0 0 20px 0;">Subscription Cancelled</h1>
+                        
+                        <p style="font-size: 16px;">
+                            Your subscription for <strong>${params.organizationName}</strong> has been cancelled.
+                        </p>
+                        
+                        <div style="background: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                            <p style="margin: 0;"><strong>Plan:</strong> ${params.planName}</p>
+                            <p style="margin: 10px 0 0 0;"><strong>Access until:</strong> ${new Date(params.endDate).toLocaleDateString('en-IN')}</p>
+                        </div>
+                        
+                        <p style="font-size: 16px;">
+                            You'll continue to have access until <strong>${new Date(params.endDate).toLocaleDateString('en-IN')}</strong>.
+                        </p>
+                        
+                        <p style="font-size: 16px;">
+                            We're sorry to see you go! If you change your mind, you can reactivate anytime from your dashboard.
+                        </p>
+                        
+                        <div style="margin: 30px 0; text-align: center;">
+                            <a href="${brand.product.url}/dashboard" 
+                               style="display: inline-block; background: #10b981; color: #fff; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                                Go to Dashboard
+                            </a>
+                        </div>
+                        
+                        <p style="font-size: 14px; color: #666; margin-top: 30px;">
+                            Questions? Contact us at ${brand.contact.email}
+                        </p>
+                        
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                        
+                        <p style="font-size: 12px; color: #999; text-align: center;">
+                            © ${new Date().getFullYear()} ${brand.company.legalName}
+                        </p>
                     </div>
-                    
-                    <p>We're sorry to see you go. If you change your mind, you can reactivate anytime from your dashboard.</p>
-                    
-                    <div style="margin: 30px 0;">
-                        <a href="${brand.product.url}/dashboard" 
-                           style="display: inline-block; background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px;">
-                            Go to Dashboard
-                        </a>
-                    </div>
-                    
-                    <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                    
-                    <p style="font-size: 12px; color: #999; text-align: center;">
-                        © ${new Date().getFullYear()} ${brand.company.legalName}
-                    </p>
                 </body>
                 </html>
             `,
     });
   } catch (error) {
-    console.error('❌ Failed to send cancellation email:', error);
+    console.error('❌ Failed to send subscription cancelled email:', error);
   }
 }
