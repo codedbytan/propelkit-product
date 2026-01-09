@@ -1,54 +1,49 @@
-// src/config/brand.ts
-/**
- * 🎯 CENTRALIZED BRAND CONFIGURATION
- * 
- * This is the ONLY file your customers need to change!
- * All brand-specific details are stored here.
- * 
- * When someone clones the repo, they just update this file
- * and everything else automatically uses these values.
- */
+// ============================================
+// 🎯 BRAND CONFIGURATION (SINGLE SOURCE OF TRUTH)
+// ============================================
+// This file is the SINGLE SOURCE OF TRUTH for all project branding.
+// AI assistants (Claude, Cursor, Windsurf, etc.) should ALWAYS reference
+// this file instead of hardcoding "PropelKit" or any other project names.
+// 
+// When AI generates code, it should:
+// 1. Import: import { brand } from '@/config/brand';
+// 2. Use: brand.name, brand.url, brand.company, etc.
+//
+// EXAMPLE:
+// ❌ WRONG:  const title = "PropelKit Dashboard";
+// ✅ RIGHT:  const title = `${brand.name} Dashboard`;
+//
+// This ensures that when customers customize their project,
+// ALL generated code automatically uses THEIR branding! 🚀
+// ============================================
 
-export const BRAND_CONFIG = {
+export const brand = {
     // ===========================================
-    // PRODUCT INFORMATION
+    // CORE BRAND IDENTITY
     // ===========================================
-    product: {
-        name: "PropelKit",              // Your product name (used in emails, UI)
-        tagline: "Ship Your SaaS in 24 Hours",
-        description: "The fastest way to build and launch SaaS products in India",
-        domain: "propelkit.dev",
-        url: process.env.NEXT_PUBLIC_APP_URL || "https://propelkit.dev",
+    name: "PropelKit",                    // Your SaaS product name
+    tagline: "Ship Your SaaS in Days",    // Short description
+    url: "https://propelkit.dev",         // Production URL
+    company: "PropelKit",                 // Legal company name
+
+    // ===========================================
+    // SUPABASE CONFIGURATION
+    // ===========================================
+    supabase: {
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     },
 
     // ===========================================
-    // COMPANY INFORMATION
+    // RAZORPAY CONFIGURATION (Indian Payments)
     // ===========================================
-    company: {
-        legalName: "PropelKit",         // Legal business name
-        operatedBy: "Tanishq Agarwal",  // Owner/operator name
-        address: {
-            street: "Jagatpura",
-            city: "Jaipur",
-            state: "Rajasthan",
-            stateCode: "08",              // For GST calculation
-            pincode: "302017",
-            country: "India",
-        },
-        gstin: "08AAAAA0000A1Z5",       // Your actual GSTIN (update when you get it)
+    razorpay: {
+        keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        keySecret: process.env.RAZORPAY_KEY_SECRET!,
     },
 
     // ===========================================
-    // CONTACT INFORMATION
-    // ===========================================
-    contact: {
-        email: "support@propelkit.dev",
-        phone: "+91 63764 23215",
-        adminEmail: "tanishqagarwalswm@gmail.com", // Where to receive notifications
-    },
-
-    // ===========================================
-    // INNGEST CONFIGURATION
+    // INNGEST CONFIGURATION (Background Jobs)
     // ===========================================
     inngest: {
         appId: "propelkit-acme-prod",   // Inngest app identifier (must be unique)
@@ -96,53 +91,94 @@ export const BRAND_CONFIG = {
     },
 
     // ===========================================
-    // INVOICE CONFIGURATION
+    // INVOICING
     // ===========================================
-    invoice: {
-        sacCode: "9983",                // SAC code for software services
-        taxRate: 0.18,                  // 18% GST
-        invoicePrefix: "INV-",          // Invoice number prefix
+    invoicing: {
+        companyName: "PropelKit",
+        address: "123 Tech Street, Bangalore, Karnataka 560001",
+        gstin: "29XXXXX1234X1ZX",  // Your GST Number
+        pan: "ABCDE1234F",         // Your PAN
+        email: "billing@propelkit.dev",
     },
 
     // ===========================================
-    // FEATURES FLAGS (optional - for future use)
+    // FEATURES (for marketing & onboarding)
     // ===========================================
     features: {
-        enableOrganizations: true,
-        enableSubscriptions: true,
-        enableBackgroundJobs: true,
-        enableAnalytics: true,
+        authentication: true,
+        payments: true,
+        backgroundJobs: true,
+        emailNotifications: true,
+        gstInvoicing: true,
+        multiTenancy: true,
+        superAdminDashboard: true,
     },
-} as const;
+};
 
 // ===========================================
-// HELPER FUNCTIONS
+// TYPE EXPORTS (for TypeScript autocomplete)
 // ===========================================
+export type BrandConfig = typeof brand;
 
-/**
- * Get full company address as string
- */
-export function getCompanyAddress(): string {
-    const { address } = BRAND_CONFIG.company;
-    return `${address.street}, ${address.city}, ${address.state} - ${address.pincode}, ${address.country}`;
+// ===========================================
+// USAGE EXAMPLES FOR AI ASSISTANTS
+// ===========================================
+/*
+EXAMPLE 1: Welcome Message
+---------------------------
+import { brand } from '@/config/brand';
+
+export function WelcomeMessage() {
+  return <h1>Welcome to {brand.name}!</h1>;
 }
 
-/**
- * Get formatted price
- */
-export function formatPrice(amountInPaise: number): string {
-    const amount = amountInPaise / 100;
-    return `${BRAND_CONFIG.pricing.currencySymbol}${amount.toLocaleString("en-IN")}`;
+EXAMPLE 2: Email Template
+---------------------------
+import { brand } from '@/config/brand';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+await resend.emails.send({
+  from: brand.email.fromSupport,
+  to: user.email,
+  subject: `Welcome to ${brand.name}`,
+  html: `<p>Thank you for joining ${brand.name}!</p>`,
+});
+
+EXAMPLE 3: Page Metadata
+---------------------------
+import { brand } from '@/config/brand';
+
+export const metadata = {
+  title: `${brand.name} - ${brand.tagline}`,
+  description: `Build and ship your SaaS with ${brand.name}`,
+};
+
+EXAMPLE 4: API Route
+---------------------------
+import { brand } from '@/config/brand';
+
+export async function GET() {
+  return Response.json({
+    name: brand.name,
+    url: brand.url,
+    features: brand.features,
+  });
 }
 
-/**
- * Generate invoice number
- */
-export function generateInvoiceNumber(uniqueId: string): string {
-    return `${BRAND_CONFIG.invoice.invoicePrefix}${uniqueId.slice(-8).toUpperCase()}`;
-}
+EXAMPLE 5: Payment Checkout
+---------------------------
+import { brand } from '@/config/brand';
+import Razorpay from 'razorpay';
 
-// ===========================================
-// TYPE EXPORTS (for TypeScript)
-// ===========================================
-export type BrandConfig = typeof BRAND_CONFIG;
+const razorpay = new Razorpay({
+  key_id: brand.razorpay.keyId,
+  key_secret: brand.razorpay.keySecret,
+});
+
+const order = await razorpay.orders.create({
+  amount: brand.pricing.plans.starter.priceInPaise,
+  currency: brand.pricing.currency,
+});
+*/

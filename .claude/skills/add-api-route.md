@@ -1,30 +1,48 @@
 # Add API Route Skill
 
+---
+## 🎯 CRITICAL: Read Project Context First
+
+**Before generating ANY code:**
+1. ✅ Read `.claude/PROJECT_CONTEXT.md` for master rules
+2. ✅ Check `src/config/brand.ts` for project-specific configuration
+3. ✅ Use `brand.*` dynamically, NEVER hardcode values
+
+---
+
 ## Trigger
-When user says: "Add API route for [feature]" or "Create endpoint for [action]"
+When user says: "Add API route for [feature]" or "Create [method] endpoint for [resource]"
 
 ## What This Skill Does
-Generates a production-ready Next.js 15 API route with:
-1. Proper authentication checks
-2. Input validation with Zod
-3. Error handling
-4. TypeScript types
-5. Supabase integration
+Generates production-ready API routes with:
+1. Next.js 15 App Router patterns (async params)
+2. Supabase authentication
+3. Zod input validation
+4. Proper error handling
+5. TypeScript types
+6. HTTP status codes
+
+---
 
 ## Template: Basic API Route
 
 **File: `src/app/api/[resource]/route.ts`**
 
+Replace `[resource]` with actual resource name (e.g., `products`, `users`, `blog-posts`)
+
 ```typescript
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { brand } from '@/config/brand';
 import { z } from 'zod';
 
 // Validation schema
-const requestSchema = z.object({
-  // Define your fields here
+const createSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  // Add more fields
 });
 
+// GET - List resources
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -35,31 +53,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Parse query params
+    // Optional: Query params
     const { searchParams } = new URL(request.url);
-    const param = searchParams.get('param');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
 
-    // Your logic here
-    const { data, error } = await supabase
+    // Fetch data
+    const { data, error, count } = await supabase
       .from('table_name')
-      .select('*')
-      .eq('user_id', user.id);
+      .select('*', { count: 'exact' })
+      .eq('user_id', user.id)
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error('Database error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({
+      data,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        pages: Math.ceil((count || 0) / limit)
+      }
+    });
+
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
+// POST - Create resource
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -72,19 +103,22 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate body
     const body = await request.json();
-    const parsed = requestSchema.safeParse(body);
+    const parsed = createSchema.safeParse(body);
     
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: parsed.error.errors },
+        { error: 'Validation failed', details: parsed.error },
         { status: 400 }
       );
     }
 
-    // Your logic here
+    // Insert data
     const { data, error } = await supabase
       .from('table_name')
-      .insert({ ...parsed.data, user_id: user.id })
+      .insert({
+        ...parsed.data,
+        user_id: user.id,
+      })
       .select()
       .single();
 
@@ -94,17 +128,20 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ data }, { status: 201 });
+
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }
 }
 ```
 
-## Template: Dynamic Route (with ID parameter)
+---
+
+## Template: Dynamic Route with ID
 
 **File: `src/app/api/[resource]/[id]/route.ts`**
 
@@ -113,14 +150,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { z } from 'zod';
 
-// ⚠️ CRITICAL: In Next.js 15, params are Promises!
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
+const updateSchema = z.object({
+  name: z.string().min(1).optional(),
+  // Add more fields
+});
 
-export async function GET(request: NextRequest, { params }: RouteContext) {
+// GET - Single resource
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> } // ✅ Next.js 15: params is Promise
+) {
   try {
-    const { id } = await params; // Must await!
+    const { id } = await params; // ✅ Must await
     const supabase = await createClient();
     
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -135,18 +176,29 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       .eq('user_id', user.id)
       .single();
 
-    if (error || !data) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ data });
+
   } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('API error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
-export async function PUT(request: NextRequest, { params }: RouteContext) {
+// PUT/PATCH - Update resource
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
     const supabase = await createClient();
@@ -157,10 +209,18 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     }
 
     const body = await request.json();
+    const parsed = updateSchema.safeParse(body);
     
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabase
       .from('table_name')
-      .update(body)
+      .update(parsed.data)
       .eq('id', id)
       .eq('user_id', user.id)
       .select()
@@ -171,13 +231,21 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     }
 
     return NextResponse.json({ data });
+
   } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('API error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: RouteContext) {
+// DELETE - Remove resource
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
     const supabase = await createClient();
@@ -197,106 +265,21 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { status: 200 });
+
   } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-```
-
-## Template: Public Route (No Auth)
-
-**File: `src/app/api/public/[resource]/route.ts`**
-
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/service';
-import { z } from 'zod';
-
-// Rate limiting can be added here
-const RATE_LIMIT = 100; // requests per minute
-
-export async function GET(request: NextRequest) {
-  try {
-    // Use service client for public routes (bypasses RLS)
-    const supabase = createServiceClient();
-
-    const { data, error } = await supabase
-      .from('public_table')
-      .select('*')
-      .limit(50);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // Add cache headers for public data
+    console.error('API error:', error);
     return NextResponse.json(
-      { data },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
-        },
-      }
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
     );
-  } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 ```
 
-## Template: Admin-Only Route
+---
 
-**File: `src/app/api/admin/[resource]/route.ts`**
-
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
-import { createServiceClient } from '@/lib/supabase/service';
-
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    
-    // Check if user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_super_admin')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.is_super_admin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Use service client for admin operations (bypasses RLS)
-    const adminSupabase = createServiceClient();
-    
-    const { data, error } = await adminSupabase
-      .from('table_name')
-      .select('*');
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ data });
-  } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-```
-
-## Template: Webhook Route
+## Template: Webhook Handler
 
 **File: `src/app/api/webhooks/[provider]/route.ts`**
 
@@ -305,33 +288,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import crypto from 'crypto';
 
-// Disable body parsing for raw body access
-export const dynamic = 'force-dynamic';
-
-function verifySignature(body: string, signature: string, secret: string): boolean {
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(body)
-    .digest('hex');
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
-}
-
 export async function POST(request: NextRequest) {
   try {
+    // Get raw body for signature verification
     const rawBody = await request.text();
-    const signature = request.headers.get('x-webhook-signature') || '';
+    const signature = request.headers.get('x-webhook-signature');
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.error('Webhook secret not configured');
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    // Verify signature
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('hex');
     
-    // Verify webhook signature
-    const isValid = verifySignature(
-      rawBody,
-      signature,
-      process.env.WEBHOOK_SECRET!
-    );
-    
-    if (!isValid) {
+    if (expectedSignature !== signature) {
       console.error('Invalid webhook signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
@@ -378,6 +353,8 @@ export async function POST(request: NextRequest) {
 }
 ```
 
+---
+
 ## Common Patterns
 
 ### Pagination
@@ -393,7 +370,12 @@ const { data, count } = await supabase
 
 return NextResponse.json({
   data,
-  pagination: { page, limit, total: count, pages: Math.ceil(count / limit) }
+  pagination: { 
+    page, 
+    limit, 
+    total: count, 
+    pages: Math.ceil((count || 0) / limit) 
+  }
 });
 ```
 
@@ -431,18 +413,101 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data, error } = await supabase.storage
     .from('uploads')
-    .upload(`${Date.now()}-${file.name}`, buffer);
+    .upload(`${Date.now()}-${file.name}`, buffer, {
+      contentType: file.type,
+    });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ path: data.path });
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('uploads')
+    .getPublicUrl(data.path);
+
+  return NextResponse.json({ url: publicUrl });
 }
 ```
 
-## Example Usage
+---
 
-**User**: "Add API route for user preferences"
+## HTTP Status Codes
 
-**Claude generates**: `src/app/api/user/preferences/route.ts` with GET and PUT methods to read and update user preferences in the `profiles` table.
+Use appropriate status codes:
+
+| Code | Meaning | When to Use |
+|------|---------|-------------|
+| 200 | OK | Successful GET, PUT, DELETE |
+| 201 | Created | Successful POST (resource created) |
+| 400 | Bad Request | Validation failed |
+| 401 | Unauthorized | Missing or invalid auth |
+| 403 | Forbidden | Authenticated but no permission |
+| 404 | Not Found | Resource doesn't exist |
+| 500 | Internal Server Error | Unexpected server error |
+
+---
+
+## Error Handling Best Practices
+
+```typescript
+try {
+  // Your logic
+} catch (error) {
+  console.error('Detailed error for logs:', error);
+  
+  return NextResponse.json(
+    { 
+      error: error instanceof Error 
+        ? error.message 
+        : 'An unexpected error occurred'
+    },
+    { status: 500 }
+  );
+}
+```
+
+---
+
+## Security Checklist
+
+Before generating an API route, ensure:
+
+- ✅ Auth check at the beginning
+- ✅ Input validation with Zod
+- ✅ User can only access their own data
+- ✅ Proper error handling
+- ✅ No sensitive data in error messages
+- ✅ Rate limiting (if needed)
+- ✅ CORS headers (if needed)
+
+---
+
+## Usage Examples
+
+**User:** "Add API route for user preferences"
+
+**Claude generates:** `src/app/api/user/preferences/route.ts` with GET and PUT methods to read and update user preferences in the `profiles` table.
+
+**User:** "Create POST endpoint for blog posts"
+
+**Claude generates:** `src/app/api/blog-posts/route.ts` with POST method, Zod validation for title/content/author, and Supabase insert.
+
+**User:** "Add webhook handler for Razorpay"
+
+**Claude generates:** `src/app/api/webhooks/razorpay/route.ts` with signature verification, duplicate check, and event processing.
+
+---
+
+## Important Reminders
+
+1. **Next.js 15**: Always `await params` in dynamic routes
+2. **Auth First**: Check authentication before any logic
+3. **Validate Input**: Use Zod for all user input
+4. **Error Handling**: Catch and log errors properly
+5. **Status Codes**: Use appropriate HTTP status codes
+6. **Security**: Users can only access their own data
+
+---
+
+**Remember:** Generate API routes that work for ANY project! 🚀

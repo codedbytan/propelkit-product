@@ -1,129 +1,318 @@
-# PropelKit - Windsurf AI Rules
+# 🎯 Windsurf AI Rules - Dynamic Brand Configuration
 
-## Project: PropelKit
-A production-ready Next.js 15 SaaS boilerplate for Indian developers with Razorpay, GST invoicing, and Supabase.
+## CRITICAL: Project Context
+**BEFORE ANYTHING ELSE, read `.claude/PROJECT_CONTEXT.md`**
 
-## Core Technologies
-- Framework: Next.js 15 (App Router only)
-- Language: TypeScript (strict)
-- Database: Supabase (PostgreSQL with RLS)
-- Auth: Supabase Auth
-- Payments: Razorpay (NOT Stripe)
-- Emails: Resend
-- Background Jobs: Inngest
-- UI: shadcn/ui + Tailwind CSS
-- Validation: Zod
+This is a **customizable boilerplate template**. Each customer will have:
+- Different project name (NOT "PropelKit" or "Acme SaaS")
+- Different branding, URLs, emails
+- All configured in `src/config/brand.ts`
 
-## CRITICAL: Next.js 15 Changes
+**NEVER hardcode "PropelKit" or "Acme SaaS" in generated code!**
 
-Route params are now Promises:
+---
+
+## Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript (strict) |
+| Database | Supabase (PostgreSQL + RLS) |
+| Auth | Supabase Auth |
+| Payments | Razorpay (India) |
+| Emails | Resend |
+| Background Jobs | Inngest |
+| UI | shadcn/ui + Tailwind CSS |
+| Validation | Zod |
+| Forms | react-hook-form |
+
+---
+
+## 🚨 Next.js 15 Breaking Change
+
+**Route params are NOW Promises:**
+
 ```typescript
-// CORRECT
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+// ✅ CORRECT - Next.js 15
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params; // MUST await
 }
 
-// WRONG - will cause errors
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const id = params.id;
+// ❌ WRONG - Will break!
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id; // No await
 }
 ```
 
-## Code Generation Rules
+---
 
-### When generating API routes:
-1. Use `src/app/api/[resource]/route.ts` pattern
-2. Import `createClient` from `@/lib/supabase-server`
-3. Always check auth with `supabase.auth.getUser()`
-4. Validate input with Zod
-5. Return `NextResponse.json()` with proper status codes
+## Dynamic Brand Configuration
 
-### When generating components:
-1. Use shadcn/ui components from `@/components/ui/`
-2. Add `'use client'` only if component needs interactivity
-3. Use `useToast` hook for notifications
-4. Use `cn()` utility for conditional classes
+**ALWAYS import and use brand config:**
 
-### When generating database schemas:
-1. Always include `id`, `user_id`, `created_at`, `updated_at`
-2. Add `REFERENCES auth.users(id) ON DELETE CASCADE`
-3. Enable RLS: `ALTER TABLE x ENABLE ROW LEVEL SECURITY`
-4. Add standard CRUD policies
-
-### When generating forms:
-1. Use `react-hook-form` with `zodResolver`
-2. Use shadcn/ui Form components
-3. Include proper error states
-4. Add loading states to submit buttons
-
-## File Patterns
-
-### API Route Template
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import { brand } from '@/config/brand';
+
+// ✅ CORRECT - Dynamic
+const title = `Welcome to ${brand.name}`;
+const email = brand.email.fromSupport;
+const price = `${brand.pricing.currencySymbol}${amount}`;
+
+// ❌ WRONG - Hardcoded
+const title = "Welcome to PropelKit";
+const email = "support@propelkit.dev";
+const price = `₹${amount}`;
+```
+
+---
+
+## File Structure Rules
+
+### API Routes
+- Location: `src/app/api/[resource]/route.ts`
+- Always check auth first
+- Validate with Zod
+- Use proper HTTP status codes
+
+### Supabase Patterns
+
+**Server-side (API routes, Server Components):**
+```typescript
 import { createClient } from '@/lib/supabase-server';
+const supabase = await createClient();
+```
+
+**Client-side (Client Components):**
+```typescript
+import { createClient } from '@/lib/supabase-browser';
+const supabase = createClient();
+```
+
+**Admin (bypass RLS):**
+```typescript
+import { createServiceClient } from '@/lib/supabase/service';
+const supabase = createServiceClient();
+```
+
+---
+
+## Database Rules
+
+### Required Columns
+```sql
+id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+created_at TIMESTAMPTZ DEFAULT NOW()
+updated_at TIMESTAMPTZ DEFAULT NOW()
+```
+
+### Always Enable RLS
+```sql
+ALTER TABLE your_table ENABLE ROW LEVEL SECURITY;
+```
+
+### Standard Policies
+```sql
+CREATE POLICY "Users view own" ON table 
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users insert own" ON table 
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users update own" ON table 
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users delete own" ON table 
+  FOR DELETE USING (auth.uid() = user_id);
+```
+
+---
+
+## Component Patterns
+
+### Loading State
+```typescript
+<Button disabled={loading}>
+  {loading ? 'Loading...' : 'Submit'}
+</Button>
+```
+
+### Form with Validation
+```typescript
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const form = useForm({
+  resolver: zodResolver(schema),
+});
+```
+
+### Toast Notifications (with Brand)
+```typescript
+import { useToast } from '@/hooks/use-toast';
+import { brand } from '@/config/brand';
+
+const { toast } = useToast();
+
+toast({ 
+  title: `${brand.name} Success`,
+  description: 'Action completed' 
+});
+```
+
+---
+
+## India-Specific Features
+
+### Currency
+```typescript
+// Use brand config for currency
+const formatted = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: brand.pricing.currency, // 'INR'
+}).format(amount);
+```
+
+### Razorpay (NOT Stripe)
+```typescript
+// Amounts in paise: ₹100 = 10000
+const amountInPaise = brand.pricing.plans.starter.priceInPaise;
+```
+
+### GST Calculation (18%)
+```typescript
+const gstAmount = baseAmount * 0.18;
+const total = baseAmount + gstAmount;
+
+// Split for intra-state
+const cgst = gstAmount / 2;
+const sgst = gstAmount / 2;
+
+// Or inter-state
+const igst = gstAmount;
+```
+
+### Phone Validation
+```typescript
+z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian phone')
+```
+
+### GSTIN Validation
+```typescript
+z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/)
+```
+
+---
+
+## Naming Conventions
+
+- Components: PascalCase (`UserProfile.tsx`)
+- Hooks: camelCase with 'use' (`useAuth.ts`)
+- Utils: camelCase (`formatDate.ts`)
+- API routes: kebab-case (`user-preferences/route.ts`)
+- Database tables: snake_case (`user_profiles`)
+- Environment variables: SCREAMING_SNAKE_CASE
+
+---
+
+## Import Order
+
+```typescript
+// 1. React/Next
+import { useState } from 'react';
+import { NextRequest, NextResponse } from 'next/server';
+
+// 2. External libraries
 import { z } from 'zod';
 
-const schema = z.object({ /* fields */ });
+// 3. Internal utilities
+import { brand } from '@/config/brand';
+import { createClient } from '@/lib/supabase-server';
 
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+// 4. Components
+import { Button } from '@/components/ui/button';
 
-  const body = await request.json();
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error }, { status: 400 });
-
-  // Your logic
-  return NextResponse.json({ success: true });
-}
+// 5. Types
+import type { User } from '@/types';
 ```
 
-### Client Component Template
+---
+
+## Error Handling
+
+### API Routes
 ```typescript
-'use client';
-
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-
-export function MyComponent() {
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  return (
-    <Button disabled={loading}>
-      {loading ? 'Loading...' : 'Action'}
-    </Button>
+try {
+  // logic
+  return NextResponse.json({ data });
+} catch (error) {
+  console.error('Error:', error);
+  return NextResponse.json(
+    { error: error instanceof Error ? error.message : 'Unknown error' },
+    { status: 500 }
   );
 }
 ```
 
-## India-Specific
+### Client Components
+```typescript
+try {
+  const res = await fetch('/api/endpoint');
+  if (!res.ok) throw new Error('Request failed');
+  const data = await res.json();
+} catch (error) {
+  toast({ 
+    title: 'Error', 
+    description: error.message,
+    variant: 'destructive' 
+  });
+}
+```
 
-- Currency: Always use INR (₹) with `en-IN` locale
-- Payments: Use Razorpay, amounts in paise (₹100 = 10000)
-- Tax: Include GST (18%), split CGST/SGST for intra-state
-- Phone: Validate Indian format (`/^[6-9]\d{9}$/`)
-- GSTIN: 15-char alphanumeric format
+---
 
-## References
+## 🚫 DO NOT
 
-Always check these files for patterns:
-- `src/config/brand.ts` - Branding config
-- `src/lib/supabase/` - Database access
-- `src/lib/inngest/` - Background jobs
-- `schema.sql` - Database schema
+- Use `any` type
+- Skip error handling
+- Hardcode project names/URLs/emails
+- Forget RLS policies
+- Use Stripe (use Razorpay)
+- Skip awaiting params in Next.js 15
+- Import server code in client components
+- Forget to validate user input
+
+---
+
+## ✅ ALWAYS DO
+
+- Import `brand` from `@/config/brand`
+- Use `brand.name` for project references
+- Enable RLS on all tables
+- Validate with Zod
+- Handle errors properly
+- Use TypeScript types (no `any`)
+- Await params in dynamic routes
+- Check auth before logic
+
+---
+
+## Reference Files
+
+Check these for patterns:
+- `src/config/brand.ts` - Project configuration
+- `.claude/PROJECT_CONTEXT.md` - Master rules
+- `.claude/skills/` - Feature templates
+- `schema.sql` - Database reference
 - `CLAUDE.md` - Full documentation
 
-## Avoid
+---
 
-- `any` types
-- Missing error handling
-- Hardcoded secrets
-- Missing RLS policies
-- Pages Router patterns
-- Stripe references (use Razorpay)
-- Not awaiting params in dynamic routes
+**Remember: This code must work for ANY project name, not just one!** 🚀

@@ -1,5 +1,15 @@
 # UI Handler Skill (Component Generation)
 
+---
+## 🎯 CRITICAL: Read Project Context First
+
+**Before generating ANY code:**
+1. ✅ Read `.claude/PROJECT_CONTEXT.md` for master rules
+2. ✅ Check `src/config/brand.ts` for project name and branding
+3. ✅ Use `brand.name` dynamically, NEVER hardcode project names
+
+---
+
 ## Trigger
 When user says: "Create a [component type]" or "Build [UI element]" or "Add [widget]"
 
@@ -7,15 +17,15 @@ When user says: "Create a [component type]" or "Build [UI element]" or "Add [wid
 Generates production-ready React components using:
 1. shadcn/ui base components
 2. Tailwind CSS styling
-3. PropelKit design patterns
+3. **Dynamic project branding** (from `brand.ts`)
 4. TypeScript interfaces
-5. Proper accessibility
+5. Proper accessibility (WCAG 2.1 AA)
 
 ---
 
 ## Available shadcn/ui Components
 
-PropelKit includes these pre-installed components:
+This boilerplate includes pre-installed shadcn/ui components:
 
 ```
 Button, Input, Label, Textarea
@@ -25,13 +35,16 @@ Select, Checkbox, Radio
 Toast, Alert, Badge
 Avatar, Dropdown, Popover
 Form (react-hook-form integration)
+Skeleton, Progress, Separator
 ```
+
+All located in: `@/components/ui/`
 
 ---
 
 ## Component Templates
 
-### Dashboard Card
+### Dashboard Stat Card
 
 ```typescript
 // src/components/dashboard/stat-card.tsx
@@ -93,7 +106,22 @@ export function StatCard({
 }
 ```
 
-### Data Table
+**Usage:**
+```typescript
+import { StatCard } from '@/components/dashboard/stat-card';
+import { Users, DollarSign } from 'lucide-react';
+
+<StatCard
+  title="Total Users"
+  value="1,234"
+  icon={Users}
+  trend={{ value: 12, isPositive: true }}
+/>
+```
+
+---
+
+### Data Table Component
 
 ```typescript
 // src/components/ui/data-table.tsx
@@ -123,39 +151,47 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   searchKey?: keyof T;
   pageSize?: number;
+  emptyMessage?: string;
 }
 
-export function DataTable<T extends { id: string }>({
+export function DataTable<T extends Record<string, any>>({
   data,
   columns,
   searchKey,
   pageSize = 10,
+  emptyMessage = "No data available"
 }: DataTableProps<T>) {
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Filter data
-  const filtered = searchKey
-    ? data.filter((row) =>
-        String(row[searchKey]).toLowerCase().includes(search.toLowerCase())
+  // Filter data based on search
+  const filteredData = searchKey && searchTerm
+    ? data.filter(item =>
+        String(item[searchKey])
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
       )
     : data;
 
-  // Paginate
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  // Pagination
+  const totalPages = Math.ceil(filteredData.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedData = filteredData.slice(startIndex, startIndex + pageSize);
 
   return (
     <div className="space-y-4">
       {/* Search */}
       {searchKey && (
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="max-w-sm"
           />
         </div>
       )}
@@ -165,26 +201,31 @@ export function DataTable<T extends { id: string }>({
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map((col) => (
-                <TableHead key={String(col.key)}>{col.header}</TableHead>
+              {columns.map((column) => (
+                <TableHead key={String(column.key)}>
+                  {column.header}
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginated.length === 0 ? (
+            {paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="text-center py-8">
-                  No results found
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             ) : (
-              paginated.map((row) => (
-                <TableRow key={row.id}>
-                  {columns.map((col) => (
-                    <TableCell key={String(col.key)}>
-                      {col.render
-                        ? col.render(row[col.key], row)
-                        : String(row[col.key])}
+              paginatedData.map((row, idx) => (
+                <TableRow key={idx}>
+                  {columns.map((column) => (
+                    <TableCell key={String(column.key)}>
+                      {column.render
+                        ? column.render(row[column.key], row)
+                        : String(row[column.key])}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -198,25 +239,26 @@ export function DataTable<T extends { id: string }>({
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {(page - 1) * pageSize + 1} to{' '}
-            {Math.min(page * pageSize, filtered.length)} of {filtered.length}
+            Showing {startIndex + 1} to {Math.min(startIndex + pageSize, filteredData.length)} of {filteredData.length} results
           </p>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="w-4 h-4" />
+              Previous
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
             >
-              <ChevronRight className="h-4 w-4" />
+              Next
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -226,90 +268,20 @@ export function DataTable<T extends { id: string }>({
 }
 ```
 
-### Form Dialog
+---
+
+### Pricing Card (Dynamic Branding)
 
 ```typescript
-// src/components/ui/form-dialog.tsx
+// src/components/pricing/pricing-card.tsx
 'use client';
 
-import { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-
-interface FormDialogProps {
-  trigger: React.ReactNode;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  onSubmit: () => Promise<void>;
-  submitLabel?: string;
-}
-
-export function FormDialog({
-  trigger,
-  title,
-  description,
-  children,
-  onSubmit,
-  submitLabel = 'Save',
-}: FormDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      await onSubmit();
-      setOpen(false);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
-        </DialogHeader>
-        {children}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? 'Saving...' : submitLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-```
-
-### Pricing Card
-
-```typescript
-// src/components/marketing/pricing-card.tsx
-'use client';
-
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { brand } from '@/config/brand'; // ✅ Import brand config
 
 interface PricingCardProps {
   name: string;
@@ -348,7 +320,9 @@ export function PricingCard({
       
       <CardContent className="flex-1">
         <div className="text-center mb-6">
-          <span className="text-4xl font-bold">₹{price.toLocaleString('en-IN')}</span>
+          <span className="text-4xl font-bold">
+            {brand.pricing.currencySymbol}{price.toLocaleString('en-IN')}
+          </span>
           <span className="text-muted-foreground"> one-time</span>
         </div>
         
@@ -376,6 +350,91 @@ export function PricingCard({
 }
 ```
 
+---
+
+### Form with react-hook-form + Zod
+
+```typescript
+// src/components/forms/example-form.tsx
+'use client';
+
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { brand } from '@/config/brand';
+
+const schema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email'),
+});
+
+type FormData = z.infer<typeof schema>;
+
+export function ExampleForm() {
+  const { toast } = useToast();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  });
+
+  const onSubmit = async (data: FormData) => {
+    try {
+      const res = await fetch('/api/endpoint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) throw new Error('Request failed');
+
+      toast({ 
+        title: `${brand.name} Success`, 
+        description: 'Form submitted successfully' 
+      });
+    } catch (error) {
+      toast({ 
+        title: 'Error', 
+        description: error.message,
+        variant: 'destructive' 
+      });
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Name</Label>
+        <Input id="name" {...register('name')} />
+        {errors.name && (
+          <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
+        )}
+      </div>
+
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" type="email" {...register('email')} />
+        {errors.email && (
+          <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+        )}
+      </div>
+
+      <Button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Submitting...' : 'Submit'}
+      </Button>
+    </form>
+  );
+}
+```
+
+---
+
 ### Empty State
 
 ```typescript
@@ -393,7 +452,12 @@ interface EmptyStateProps {
   };
 }
 
-export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({ 
+  icon: Icon, 
+  title, 
+  description, 
+  action 
+}: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -409,6 +473,8 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
 }
 ```
 
+---
+
 ### Loading Skeleton
 
 ```typescript
@@ -421,6 +487,7 @@ export function CardSkeleton() {
       <Skeleton className="h-4 w-1/3" />
       <Skeleton className="h-8 w-1/2" />
       <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-2/3" />
     </div>
   );
 }
@@ -446,91 +513,139 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
 
 ---
 
-## Form Patterns
+## Common Patterns
 
-### With react-hook-form + Zod
-
+### Loading States
 ```typescript
-'use client';
+{isLoading ? (
+  <div className="flex items-center justify-center p-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+  </div>
+) : (
+  <YourComponent />
+)}
+```
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+### Error States
+```typescript
+{error && (
+  <Alert variant="destructive">
+    <AlertCircle className="h-4 w-4" />
+    <AlertTitle>Error</AlertTitle>
+    <AlertDescription>{error.message}</AlertDescription>
+  </Alert>
+)}
+```
+
+### Toast Notifications (with Brand)
+```typescript
 import { useToast } from '@/hooks/use-toast';
+import { brand } from '@/config/brand';
 
-const schema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email'),
+const { toast } = useToast();
+
+// Success
+toast({ 
+  title: `${brand.name} Success`,
+  description: 'Action completed successfully' 
 });
 
-type FormData = z.infer<typeof schema>;
-
-export function MyForm() {
-  const { toast } = useToast();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-  });
-
-  const onSubmit = async (data: FormData) => {
-    try {
-      // API call
-      toast({ title: 'Success!' });
-    } catch (error) {
-      toast({ title: 'Error', variant: 'destructive' });
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <Label htmlFor="name">Name</Label>
-        <Input id="name" {...register('name')} />
-        {errors.name && (
-          <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
-        )}
-      </div>
-
-      <div>
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" {...register('email')} />
-        {errors.email && (
-          <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-        )}
-      </div>
-
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Saving...' : 'Submit'}
-      </Button>
-    </form>
-  );
-}
+// Error
+toast({ 
+  title: 'Error',
+  description: 'Something went wrong',
+  variant: 'destructive'
+});
 ```
 
 ---
 
-## Styling Conventions
+## Component Generation Guidelines
 
-- Use `cn()` for conditional classes
-- Follow Tailwind's utility-first approach
-- Use CSS variables from shadcn theme
-- Keep animations subtle (no heavy motion)
-- Dark mode compatible by default
+### 1. Always Import Brand Config When Needed
+```typescript
+import { brand } from '@/config/brand';
+```
+
+### 2. Use Proper TypeScript Types
+```typescript
+interface ComponentProps {
+  title: string;
+  description?: string; // Optional
+  children?: React.ReactNode;
+  className?: string;
+}
+```
+
+### 3. Naming Conventions
+- Component files: `kebab-case.tsx`
+- Component names: `PascalCase`
+- Props interfaces: `ComponentNameProps`
+
+### 4. Accessibility
+- Add ARIA labels
+- Support keyboard navigation
+- Include focus states
+- Use semantic HTML
+
+### 5. Responsive Design
+- Mobile-first approach
+- Tailwind responsive prefixes: `md:`, `lg:`, `xl:`
+
+---
+
+## Styling Best Practices
+
+### Use cn() for Conditional Classes
+```typescript
+import { cn } from '@/lib/utils';
+
+<div className={cn(
+  "base-class",
+  condition && "conditional-class",
+  className
+)} />
+```
+
+### Follow Tailwind Patterns
+```typescript
+// Spacing
+<div className="space-y-4 p-6" />
+
+// Flexbox
+<div className="flex items-center justify-between gap-4" />
+
+// Grid
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" />
+```
 
 ---
 
 ## Usage Examples
 
-**User**: "Create a dashboard stats widget"
+**User:** "Create a dashboard stats widget"
 
-**Claude generates**: StatCard component with icon, value, trend indicator.
+**Claude generates:** StatCard component with icon, value, trend indicator, and dynamic branding from `brand.ts`
 
-**User**: "Build a pricing table"
+**User:** "Build a pricing table"
 
-**Claude generates**: Pricing cards with features list and CTA buttons.
+**Claude generates:** PricingCard components using `brand.pricing.currencySymbol` and `brand.name` automatically
+
+**User:** "Add a contact form"
+
+**Claude generates:** Form with react-hook-form, Zod validation, toast notifications using `brand.name` in success messages
+
+---
+
+## Important Reminders
+
+1. **Dynamic Branding**: Always use `brand.*` values, never hardcode
+2. **TypeScript**: Strict types, no `any`
+3. **Accessibility**: WCAG 2.1 AA compliant
+4. **Responsiveness**: Test on mobile, tablet, desktop
+5. **Error Handling**: Always handle errors gracefully
+6. **Loading States**: Show feedback during async operations
+
+---
+
+**Remember:** Generate components that work for ANY project name, not just one! 🎨

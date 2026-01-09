@@ -1,24 +1,38 @@
-# PropelKit - Cursor AI Rules
-# These rules help Cursor understand PropelKit's patterns and generate consistent code
+# 🎯 Cursor AI Rules - Dynamic Brand Configuration
 
-# Project Context
-You are working on PropelKit, a production-ready Next.js 15 SaaS boilerplate for Indian developers.
+## CRITICAL: Project Context
+**BEFORE ANYTHING ELSE, read `.claude/PROJECT_CONTEXT.md`**
+
+This is a **customizable boilerplate template**. Each customer will have:
+- Different project name (NOT "PropelKit" or "Acme SaaS")
+- Different branding, URLs, emails
+- All configured in `src/config/brand.ts`
+
+**NEVER hardcode "PropelKit" or "Acme SaaS" in generated code!**
+
+---
 
 ## Tech Stack
-- Next.js 15 with App Router (NOT Pages Router)
-- TypeScript (strict mode)
-- Supabase (PostgreSQL + Auth + RLS)
-- Razorpay (payments - NOT Stripe)
-- Resend (emails)
-- Inngest (background jobs)
-- shadcn/ui (components)
-- Tailwind CSS
-- Zod (validation)
-- React Query (@tanstack/react-query)
 
-## Critical: Next.js 15 Breaking Changes
+| Category | Technology |
+|----------|-----------|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript (strict) |
+| Database | Supabase (PostgreSQL + RLS) |
+| Auth | Supabase Auth |
+| Payments | Razorpay (India) |
+| Emails | Resend |
+| Background Jobs | Inngest |
+| UI | shadcn/ui + Tailwind CSS |
+| Validation | Zod |
+| Forms | react-hook-form |
 
-### Route Parameters are Promises
+---
+
+## 🚨 Next.js 15 Breaking Change
+
+**Route params are NOW Promises:**
+
 ```typescript
 // ✅ CORRECT - Next.js 15
 export async function GET(
@@ -28,185 +42,208 @@ export async function GET(
   const { id } = await params; // MUST await
 }
 
-// ❌ WRONG - Next.js 14 style (will break!)
+// ❌ WRONG - Will break!
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const id = params.id;
+  const id = params.id; // No await
 }
 ```
 
-## File Structure Conventions
+---
+
+## Dynamic Brand Configuration
+
+**ALWAYS import and use brand config:**
+
+```typescript
+import { brand } from '@/config/brand';
+
+// ✅ CORRECT - Dynamic
+const title = `Welcome to ${brand.name}`;
+const email = brand.email.fromSupport;
+const price = `${brand.pricing.currencySymbol}${amount}`;
+
+// ❌ WRONG - Hardcoded
+const title = "Welcome to PropelKit";
+const email = "support@propelkit.dev";
+const price = `₹${amount}`;
+```
+
+---
+
+## File Structure Rules
 
 ### API Routes
 - Location: `src/app/api/[resource]/route.ts`
-- Use NextRequest/NextResponse
-- Always validate auth first
-- Use Zod for input validation
-- Return proper HTTP status codes
+- Always check auth first
+- Validate with Zod
+- Use proper HTTP status codes
 
-### Pages
-- Location: `src/app/[route]/page.tsx`
-- Server Components by default
-- Add 'use client' only when needed (interactivity)
-- Export metadata for SEO
+### Supabase Patterns
 
-### Components
-- UI components: `src/components/ui/`
-- Feature components: `src/components/[feature]/`
-- Use shadcn/ui patterns
-- Always add TypeScript types
-
-## Supabase Patterns
-
-### Server-side (API routes, Server Components)
+**Server-side (API routes, Server Components):**
 ```typescript
 import { createClient } from '@/lib/supabase-server';
 const supabase = await createClient();
 ```
 
-### Client-side (Client Components)
+**Client-side (Client Components):**
 ```typescript
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase-browser';
 const supabase = createClient();
 ```
 
-### Admin operations (bypass RLS)
+**Admin (bypass RLS):**
 ```typescript
 import { createServiceClient } from '@/lib/supabase/service';
 const supabase = createServiceClient();
 ```
 
+---
+
 ## Database Rules
 
-### Always include these columns
-- `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
-- `user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE`
-- `created_at TIMESTAMPTZ DEFAULT NOW()`
-- `updated_at TIMESTAMPTZ DEFAULT NOW()`
+### Required Columns
+```sql
+id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+created_at TIMESTAMPTZ DEFAULT NOW()
+updated_at TIMESTAMPTZ DEFAULT NOW()
+```
 
-### Always enable RLS
+### Always Enable RLS
 ```sql
 ALTER TABLE your_table ENABLE ROW LEVEL SECURITY;
 ```
 
-### Standard policies pattern
+### Standard Policies
 ```sql
-CREATE POLICY "Users can view own data" ON table FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own data" ON table FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own data" ON table FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own data" ON table FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Users view own" ON table 
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users insert own" ON table 
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users update own" ON table 
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users delete own" ON table 
+  FOR DELETE USING (auth.uid() = user_id);
 ```
+
+---
 
 ## Component Patterns
 
-### Buttons with loading state
+### Loading State
 ```typescript
-<Button onClick={handleClick} disabled={loading}>
+<Button disabled={loading}>
   {loading ? 'Loading...' : 'Submit'}
 </Button>
 ```
 
-### Forms with react-hook-form + Zod
+### Form with Validation
 ```typescript
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 
-const schema = z.object({...});
-const form = useForm({ resolver: zodResolver(schema) });
+const form = useForm({
+  resolver: zodResolver(schema),
+});
 ```
 
-### Toast notifications
+### Toast Notifications (with Brand)
 ```typescript
 import { useToast } from '@/hooks/use-toast';
+import { brand } from '@/config/brand';
+
 const { toast } = useToast();
-toast({ title: 'Success!', description: 'Action completed' });
-toast({ title: 'Error', description: 'Something went wrong', variant: 'destructive' });
-```
 
-## India-Specific Patterns
-
-### Currency formatting
-```typescript
-const formatINR = (amount: number) => 
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
-```
-
-### Phone validation (Indian)
-```typescript
-z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian phone number')
-```
-
-### GSTIN validation
-```typescript
-z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GSTIN')
-```
-
-### GST calculation
-```typescript
-const calculateGST = (amount: number, isInterState: boolean) => {
-  const gstRate = 0.18; // 18% GST
-  const taxAmount = amount * gstRate;
-  
-  if (isInterState) {
-    return { igst: taxAmount, cgst: 0, sgst: 0, total: amount + taxAmount };
-  }
-  return { igst: 0, cgst: taxAmount / 2, sgst: taxAmount / 2, total: amount + taxAmount };
-};
-```
-
-## Razorpay (NOT Stripe!)
-
-### Creating order
-```typescript
-const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
-const order = await razorpay.orders.create({
-  amount: amountInPaise, // ₹299.99 = 29999
-  currency: 'INR',
-  receipt: `order_${Date.now()}`,
+toast({ 
+  title: `${brand.name} Success`,
+  description: 'Action completed' 
 });
 ```
 
-### Frontend checkout
+---
+
+## India-Specific Features
+
+### Currency
 ```typescript
-const options = {
-  key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-  amount: order.amount,
-  currency: 'INR',
-  order_id: order.id,
-  handler: async (response) => { /* verify payment */ },
-};
-const razorpay = new window.Razorpay(options);
-razorpay.open();
+// Use brand config for currency
+const formatted = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: brand.pricing.currency, // 'INR'
+}).format(amount);
 ```
 
-## Inngest Background Jobs
-
-### Creating a function
+### Razorpay (NOT Stripe)
 ```typescript
-import { inngest } from '@/lib/inngest/client';
-
-export const myFunction = inngest.createFunction(
-  { id: 'function-id' },
-  { event: 'namespace/event.name' },
-  async ({ event, step }) => {
-    await step.run('step-name', async () => { /* logic */ });
-    await step.sleep('wait', '1h');
-    return { success: true };
-  }
-);
+// Amounts in paise: ₹100 = 10000
+const amountInPaise = brand.pricing.plans.starter.priceInPaise;
 ```
 
-### Triggering
+### GST Calculation (18%)
 ```typescript
-await inngest.send({ name: 'namespace/event.name', data: { ... } });
+const gstAmount = baseAmount * 0.18;
+const total = baseAmount + gstAmount;
+
+// Split for intra-state
+const cgst = gstAmount / 2;
+const sgst = gstAmount / 2;
+
+// Or inter-state
+const igst = gstAmount;
 ```
+
+### Phone Validation
+```typescript
+z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian phone')
+```
+
+### GSTIN Validation
+```typescript
+z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/)
+```
+
+---
+
+## Naming Conventions
+
+- Components: PascalCase (`UserProfile.tsx`)
+- Hooks: camelCase with 'use' (`useAuth.ts`)
+- Utils: camelCase (`formatDate.ts`)
+- API routes: kebab-case (`user-preferences/route.ts`)
+- Database tables: snake_case (`user_profiles`)
+- Environment variables: SCREAMING_SNAKE_CASE
+
+---
+
+## Import Order
+
+```typescript
+// 1. React/Next
+import { useState } from 'react';
+import { NextRequest, NextResponse } from 'next/server';
+
+// 2. External libraries
+import { z } from 'zod';
+
+// 3. Internal utilities
+import { brand } from '@/config/brand';
+import { createClient } from '@/lib/supabase-server';
+
+// 4. Components
+import { Button } from '@/components/ui/button';
+
+// 5. Types
+import type { User } from '@/types';
+```
+
+---
 
 ## Error Handling
 
@@ -214,7 +251,7 @@ await inngest.send({ name: 'namespace/event.name', data: { ... } });
 ```typescript
 try {
   // logic
-  return NextResponse.json({ data }, { status: 200 });
+  return NextResponse.json({ data });
 } catch (error) {
   console.error('Error:', error);
   return NextResponse.json(
@@ -231,47 +268,51 @@ try {
   if (!res.ok) throw new Error('Request failed');
   const data = await res.json();
 } catch (error) {
-  toast({ title: 'Error', variant: 'destructive' });
+  toast({ 
+    title: 'Error', 
+    description: error.message,
+    variant: 'destructive' 
+  });
 }
 ```
 
-## Naming Conventions
+---
 
-- Components: PascalCase (`UserProfile.tsx`)
-- Hooks: camelCase with 'use' prefix (`useAuth.ts`)
-- Utils: camelCase (`formatDate.ts`)
-- API routes: kebab-case folders (`user-preferences/route.ts`)
-- Database tables: snake_case (`user_profiles`)
-- Environment variables: SCREAMING_SNAKE_CASE (`RAZORPAY_KEY_SECRET`)
+## 🚫 DO NOT
 
-## Import Order
-
-```typescript
-// 1. React/Next imports
-import { useState, useEffect } from 'react';
-import { NextRequest, NextResponse } from 'next/server';
-
-// 2. External libraries
-import { z } from 'zod';
-
-// 3. Internal utilities
-import { cn } from '@/lib/utils';
-import { createClient } from '@/lib/supabase-server';
-
-// 4. Components
-import { Button } from '@/components/ui/button';
-
-// 5. Types
-import type { User } from '@/types';
-```
-
-## Do NOT
-
-- Use `any` type - always define proper types
+- Use `any` type
 - Skip error handling
-- Hardcode secrets or API keys
-- Forget RLS policies on tables
-- Use Pages Router patterns (use App Router)
-- Use Stripe (use Razorpay for this project)
-- Forget to await params in Next.js 15 dynamic routes
-- Import server-only code in client components
+- Hardcode project names/URLs/emails
+- Forget RLS policies
+- Use Stripe (use Razorpay)
+- Skip awaiting params in Next.js 15
+- Import server code in client components
+- Forget to validate user input
+
+---
+
+## ✅ ALWAYS DO
+
+- Import `brand` from `@/config/brand`
+- Use `brand.name` for project references
+- Enable RLS on all tables
+- Validate with Zod
+- Handle errors properly
+- Use TypeScript types (no `any`)
+- Await params in dynamic routes
+- Check auth before logic
+
+---
+
+## Reference Files
+
+Check these for patterns:
+- `src/config/brand.ts` - Project configuration
+- `.claude/PROJECT_CONTEXT.md` - Master rules
+- `.claude/skills/` - Feature templates
+- `schema.sql` - Database reference
+- `CLAUDE.md` - Full documentation
+
+---
+
+**Remember: This code must work for ANY project name, not just one!** 🚀

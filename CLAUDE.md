@@ -1,186 +1,143 @@
-# PropelKit - Claude Code Instructions
+# 🤖 Claude AI - Complete Documentation
 
-> 🧠 This file makes Claude Code your AI co-founder. It understands PropelKit's architecture and can generate production-ready code instantly.
+## 🚨 CRITICAL: Read This First
 
-## 🎯 Project Overview
+**This is a customizable boilerplate template, NOT a fixed project.**
 
-**PropelKit** is a production-ready Next.js 15 SaaS boilerplate built specifically for Indian developers. It includes Razorpay payments, GST invoicing, Supabase auth, and everything needed to ship a SaaS in days.
+Before generating ANY code:
+1. ✅ Read `.claude/PROJECT_CONTEXT.md` for master rules
+2. ✅ Check `src/config/brand.ts` for current project configuration
+3. ✅ NEVER hardcode "PropelKit" or "Acme SaaS" - use `brand.*` dynamically
+
+---
+
+## Quick Start
+
+### Project Context
+- **Type**: Next.js 15 SaaS Boilerplate
+- **Target**: Indian developers
+- **Features**: Razorpay, GST invoicing, Supabase, Inngest
+- **Customizable**: Every customer has different branding
 
 ### Tech Stack
+- Next.js 15 (App Router)
+- TypeScript (strict)
+- Supabase (PostgreSQL + Auth + RLS)
+- Razorpay (payments)
+- Resend (emails)
+- Inngest (background jobs)
+- shadcn/ui (components)
 
-| Category | Technology |
-|----------|------------|
-| Framework | Next.js 15 (App Router) |
-| Language | TypeScript (strict mode) |
-| Database | Supabase (PostgreSQL + RLS) |
-| Auth | Supabase Auth |
-| Payments | Razorpay (one-time + subscriptions) |
-| Emails | Resend |
-| Background Jobs | Inngest |
-| UI Components | shadcn/ui + Tailwind CSS |
-| Validation | Zod |
-| State | React Query (@tanstack/react-query) |
+---
 
-### Key Directories
+## Dynamic Brand Configuration
 
-```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── api/               # API routes
-│   ├── dashboard/         # User dashboard
-│   ├── admin/             # Super admin panel
-│   └── (marketing)/       # Public pages
-├── components/
-│   ├── ui/                # shadcn/ui components
-│   ├── dashboard/         # Dashboard components
-│   └── blocks/            # Reusable page blocks
-├── lib/
-│   ├── supabase/          # Supabase clients
-│   ├── inngest/           # Background job definitions
-│   └── utils.ts           # Utility functions (cn, etc.)
-├── config/
-│   └── brand.ts           # Centralized branding config
-└── emails/                # React email templates
+**ALWAYS use brand config:**
+
+```typescript
+import { brand } from '@/config/brand';
+
+// ✅ CORRECT
+const title = `Welcome to ${brand.name}`;
+const email = brand.email.fromSupport;
+const price = `${brand.pricing.currencySymbol}${amount}`;
+
+// ❌ WRONG  
+const title = "Welcome to PropelKit";
+const email = "support@propelkit.dev";
 ```
 
 ---
 
-## 🔧 Code Patterns & Conventions
+## Available Skills
 
-### 1. API Routes (Next.js 15)
+Claude has 10 specialized skills in `.claude/skills/`:
 
-```typescript
-// ✅ CORRECT: app/api/[resource]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+| Skill | Trigger | What It Does |
+|-------|---------|--------------|
+| `ui-handler` | "Create [component]" | Generates React components |
+| `add-api-route` | "Add API route for [feature]" | Creates API endpoints |
+| `payments-handler` | "Add payment" | Razorpay integration |
+| `inngest-handler` | "Create background job" | Async task functions |
+| `create-email-template` | "Create [type] email" | Email templates |
+| `create-crud-page` | "CRUD for [Entity]" | Full CRUD interface |
+| `auth-handler` | "Protect [route]" | Auth guards |
+| `db-handler` | "Create table for [entity]" | SQL schemas with RLS |
+| `seo-specialist` | "Optimize SEO" | Meta tags, JSON-LD |
+| `gst-handler` | "Add GST" | India tax calculation |
 
-export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  
-  // Always check auth first
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+---
 
-  // Your logic here
-  const { data, error } = await supabase
-    .from('table_name')
-    .select('*')
-    .eq('user_id', user.id);
+## Next.js 15 Critical Change
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ data });
-}
-
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const body = await request.json();
-  
-  // Validate with Zod
-  const parsed = yourSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.errors }, { status: 400 });
-  }
-
-  // Your logic here
-  return NextResponse.json({ success: true });
-}
-```
-
-### 2. Dynamic Route Parameters (Next.js 15 Breaking Change!)
+**Route params are Promises:**
 
 ```typescript
-// ⚠️ CRITICAL: In Next.js 15, params are now Promises!
-
-// ❌ WRONG (Next.js 14 style)
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const id = params.id; // This will break!
-}
-
-// ✅ CORRECT (Next.js 15 style)
+// ✅ CORRECT
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params; // Must await!
+  const { id } = await params; // MUST await
+}
+
+// ❌ WRONG (will break!)
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id; // No await
 }
 ```
 
-### 3. Supabase Clients
+---
 
+## Code Patterns
+
+### API Route Template
 ```typescript
-// Server Components / API Routes
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-const supabase = await createClient();
+import { brand } from '@/config/brand';
+import { z } from 'zod';
 
-// Client Components
-import { createClient } from '@/lib/supabase/client';
-const supabase = createClient();
+const schema = z.object({ /* validation */ });
 
-// Admin operations (bypasses RLS)
-import { createServiceClient } from '@/lib/supabase/service';
-const supabase = createServiceClient();
+export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  
+  // Auth check
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Validation
+  const body = await request.json();
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
+  // Your logic
+  return NextResponse.json({ success: true });
+}
 ```
 
-### 4. Database Schema Patterns
-
-```sql
--- Always include these columns
-CREATE TABLE your_table (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Always add RLS
-ALTER TABLE your_table ENABLE ROW LEVEL SECURITY;
-
--- Standard policies
-CREATE POLICY "Users can view own data"
-  ON your_table FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own data"
-  ON your_table FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own data"
-  ON your_table FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own data"
-  ON your_table FOR DELETE
-  USING (auth.uid() = user_id);
-```
-
-### 5. Component Patterns
-
+### Component Template
 ```typescript
-// ✅ Client Component (interactive)
 'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { brand } from '@/config/brand';
 
 export function MyComponent() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleClick = async () => {
+  const handleAction = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/something', { method: 'POST' });
-      if (!res.ok) throw new Error('Failed');
-      toast({ title: 'Success!' });
+      // Action
+      toast({ title: `${brand.name} Success` });
     } catch (error) {
       toast({ title: 'Error', variant: 'destructive' });
     } finally {
@@ -189,295 +146,144 @@ export function MyComponent() {
   };
 
   return (
-    <Button onClick={handleClick} disabled={loading}>
-      {loading ? 'Loading...' : 'Click Me'}
+    <Button onClick={handleAction} disabled={loading}>
+      {loading ? 'Loading...' : 'Submit'}
     </Button>
   );
 }
-
-// ✅ Server Component (data fetching)
-import { createClient } from '@/lib/supabase-server';
-
-export default async function MyPage() {
-  const supabase = await createClient();
-  const { data } = await supabase.from('table').select('*');
-
-  return <div>{/* render data */}</div>;
-}
 ```
 
-### 6. Form Validation with Zod
+---
 
-```typescript
-import { z } from 'zod';
+## Database Rules
 
-// Define schema
-export const createItemSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100),
-  email: z.string().email('Invalid email'),
-  price: z.number().positive('Price must be positive'),
-  phone: z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian phone number'),
-  gst: z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/, 'Invalid GSTIN').optional(),
-});
-
-export type CreateItemInput = z.infer<typeof createItemSchema>;
-```
-
-### 7. Inngest Background Jobs
-
-```typescript
-// src/lib/inngest/functions/your-function.ts
-import { inngest } from '../client';
-
-export const yourFunction = inngest.createFunction(
-  { id: 'your-function-name' },
-  { event: 'your/event.name' },
-  async ({ event, step }) => {
-    // Step 1
-    const result1 = await step.run('step-1-name', async () => {
-      // Your logic
-      return { data: 'something' };
-    });
-
-    // Step 2 (can use result1)
-    await step.run('step-2-name', async () => {
-      console.log(result1.data);
-    });
-
-    // Sleep
-    await step.sleep('wait-1-hour', '1h');
-
-    // Final step
-    return { success: true };
-  }
+### Standard Table
+```sql
+CREATE TABLE IF NOT EXISTS table_name (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-// Trigger from anywhere:
-await inngest.send({
-  name: 'your/event.name',
-  data: { userId: '123', email: 'user@example.com' }
-});
-```
+ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
 
-### 8. Email Templates (Resend + React Email)
-
-```typescript
-// src/emails/welcome.tsx
-import { Html, Head, Body, Container, Text, Button, Hr } from '@react-email/components';
-
-interface WelcomeEmailProps {
-  name: string;
-  licenseKey: string;
-}
-
-export default function WelcomeEmail({ name, licenseKey }: WelcomeEmailProps) {
-  return (
-    <Html>
-      <Head />
-      <Body style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f4f4' }}>
-        <Container style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
-          <Text style={{ fontSize: '24px', fontWeight: 'bold' }}>
-            Welcome to PropelKit, {name}! 🎉
-          </Text>
-          <Text>Your license key: <strong>{licenseKey}</strong></Text>
-          <Hr />
-          <Button
-            href="https://propelkit.dev/dashboard"
-            style={{ backgroundColor: '#fbbf24', padding: '12px 24px', color: '#000' }}
-          >
-            Go to Dashboard
-          </Button>
-        </Container>
-      </Body>
-    </Html>
-  );
-}
+CREATE POLICY "Users view own" ON table_name
+  FOR SELECT USING (auth.uid() = user_id);
 ```
 
 ---
 
-## 🇮🇳 India-Specific Patterns
+## India-Specific Features
 
-### GST Invoice Generation
-
+### Currency (INR)
 ```typescript
-// When generating invoices, always include:
-interface GSTInvoice {
-  invoiceNumber: string;      // Format: INV-YYYY-MM-NNNN
-  invoiceDate: Date;
-  
-  // Seller (PropelKit)
-  sellerName: string;
-  sellerGSTIN: string;        // 22 character GSTIN
-  sellerAddress: string;
-  sellerState: string;        // State code (e.g., "27" for Maharashtra)
-  
-  // Buyer
-  buyerName: string;
-  buyerEmail: string;
-  buyerAddress?: string;
-  buyerGSTIN?: string;        // If B2B
-  buyerState?: string;
-  
-  // Items
-  items: {
-    description: string;
-    hsn: string;              // HSN/SAC code
-    quantity: number;
-    rate: number;             // Pre-tax rate
-    taxableValue: number;
-  }[];
-  
-  // Taxes
-  isInterState: boolean;      // Determines IGST vs CGST+SGST
-  cgst: number;               // 9% for intra-state
-  sgst: number;               // 9% for intra-state
-  igst: number;               // 18% for inter-state
-  totalTax: number;
-  grandTotal: number;
-}
-```
-
-### Razorpay Integration
-
-```typescript
-// Creating a payment order
-import Razorpay from 'razorpay';
-
-const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
-const order = await razorpay.orders.create({
-  amount: 299900,           // Amount in paise (₹2,999)
+const formatted = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
   currency: 'INR',
-  receipt: `order_${Date.now()}`,
-  notes: {
-    userId: user.id,
-    plan: 'starter',
-  },
-});
-
-// Verifying payment signature
-import crypto from 'crypto';
-
-function verifyRazorpaySignature(
-  orderId: string,
-  paymentId: string,
-  signature: string
-): boolean {
-  const body = orderId + '|' + paymentId;
-  const expectedSignature = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
-    .update(body)
-    .digest('hex');
-  return expectedSignature === signature;
-}
+}).format(amount);
 ```
 
----
-
-## 📁 Available Skills
-
-Claude Code has access to specialized skills in `.claude/skills/`:
-
-| Skill | Description | Usage |
-|-------|-------------|-------|
-| `create-crud-page` | Generate complete CRUD interface | "Create a CRUD page for Products" |
-| `add-api-route` | Generate API endpoint | "Add API route for user preferences" |
-| `create-email-template` | Generate email template | "Create a payment confirmation email" |
-| `auth-handler` | Add authentication to routes | "Add auth check to this endpoint" |
-| `payments-handler` | Razorpay payment integration | "Add payment flow for subscriptions" |
-| `db-handler` | Database schema + migrations | "Create table for blog posts" |
-| `seo-specialist` | SEO optimization | "Optimize this page for SEO" |
-| `ui-handler` | UI components generation | "Create a pricing table component" |
-| `gst-handler` | GST compliance features | "Add GST invoice generation" |
-| `inngest-handler` | Background job creation | "Create email sequence job" |
-
----
-
-## ⚡ Quick Commands
-
-When using Claude Code, you can say:
-
-- "Create a CRUD page for [Entity] with [fields]"
-- "Add an API route for [feature]"
-- "Generate an email template for [purpose]"
-- "Create a background job that [does something]"
-- "Add Razorpay payment for [product/plan]"
-- "Generate GST invoice for [transaction]"
-- "Create a dashboard widget for [metric]"
-- "Add form validation for [fields]"
-
----
-
-## 🚫 Anti-Patterns (Don't Do This)
-
+### Razorpay (NOT Stripe)
 ```typescript
-// ❌ Don't use any
-const data: any = await fetch('/api');
+// Amounts in paise: ₹100 = 10000
+const amountInPaise = brand.pricing.plans.starter.priceInPaise;
+```
 
-// ❌ Don't forget error handling
-const { data } = await supabase.from('table').select('*');
-// Missing error check!
+### GST (18%)
+```typescript
+const gstAmount = baseAmount * 0.18;
+// Intra-state: CGST + SGST
+// Inter-state: IGST
+```
 
-// ❌ Don't hardcode secrets
-const razorpay = new Razorpay({ key_secret: 'sk_live_xxx' });
-
-// ❌ Don't skip RLS policies
-// Every table must have RLS enabled!
-
-// ❌ Don't use client-side imports in server components
-'use client'; // Remove this if not needed!
-
-// ❌ Don't forget to await params in Next.js 15
-const { id } = params; // WRONG - must await params first!
+### Phone Validation
+```typescript
+z.string().regex(/^[6-9]\d{9}$/)
 ```
 
 ---
 
-## 🔐 Environment Variables
+## File Structure
 
-```env
-# Required
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-NEXT_PUBLIC_RAZORPAY_KEY_ID=
-RAZORPAY_KEY_SECRET=
-RAZORPAY_WEBHOOK_SECRET=
-RESEND_API_KEY=
-INNGEST_EVENT_KEY=
-INNGEST_SIGNING_KEY=
-
-# Optional
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
-ADMIN_EMAIL=admin@yourdomain.com
+```
+src/
+├── config/
+│   └── brand.ts              ← SINGLE SOURCE OF TRUTH
+├── lib/
+│   ├── supabase-server.ts    ← Server DB client
+│   └── supabase-browser.ts   ← Client DB client
+├── app/
+│   ├── api/                  ← API routes
+│   └── dashboard/            ← Protected pages
+└── components/
+    └── ui/                   ← shadcn/ui components
 ```
 
 ---
 
-## 📖 Reference Files
+## Quick Commands
 
-When generating code, always reference:
+**API Route:**
+```
+"Add API route for user preferences"
+```
 
-- `src/config/brand.ts` - For branding/naming
-- `src/lib/supabase/*.ts` - For database access patterns
-- `src/lib/inngest/client.ts` - For Inngest client
-- `src/components/ui/*` - For available UI components
-- `schema.sql` - For database schema reference
+**Component:**
+```
+"Create a pricing card component"
+```
+
+**Payment:**
+```
+"Add Razorpay checkout for starter plan"
+```
+
+**Background Job:**
+```
+"Create email sequence for new users"
+```
+
+**CRUD:**
+```
+"Create CRUD page for Products with name, price, description"
+```
 
 ---
 
-## 💡 Tips for Best Results
+## Security Checklist
 
-1. **Be specific**: "Create a products CRUD with name, price, description, and image_url"
-2. **Mention the stack**: "Using Supabase and shadcn/ui"
-3. **Reference patterns**: "Follow the existing license management pattern"
-4. **Include validation**: "Add Zod validation for all fields"
-5. **Mention India-specific**: "Include GST calculation" or "Use Razorpay"
+- ✅ Auth check in API routes
+- ✅ Input validation with Zod
+- ✅ RLS enabled on all tables
+- ✅ Proper error handling
+- ✅ No secrets in frontend
+- ✅ User can only access own data
 
 ---
 
-*This is PropelKit - Ship Your SaaS in 24 Hours* 🚀
+## Reference Files
+
+- `.claude/PROJECT_CONTEXT.md` - Master rules
+- `.claude/skills/` - Feature templates
+- `src/config/brand.ts` - Project config
+- `.cursorrules` - Cursor AI rules
+- `.windsurfrules` - Windsurf AI rules
+
+---
+
+## Important Reminders
+
+1. **Dynamic Branding**: Use `brand.*`, never hardcode
+2. **Next.js 15**: Always await params
+3. **RLS**: Enable on all tables
+4. **Validation**: Use Zod for all input
+5. **India-Specific**: Razorpay, GST, INR
+6. **Error Handling**: Always catch and log
+7. **TypeScript**: No `any` types
+
+---
+
+**Remember: This code works for ANY project name!** 🚀
+
+For detailed info on each skill, check files in `.claude/skills/`
