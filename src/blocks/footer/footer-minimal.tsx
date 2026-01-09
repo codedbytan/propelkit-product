@@ -44,7 +44,7 @@ export function FooterMinimal() {
         </div>
 
         <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-          © {currentYear} {brand.company}. All rights reserved.
+          © {currentYear} {brand.company.legalName}. All rights reserved.
         </div>
       </div>
     </footer>
