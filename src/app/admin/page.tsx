@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { BRAND_CONFIG } from "@/config/brand";
+import { brand } from "@/config/brand";  // ✅ FIXED
 
 interface DashboardStats {
     totalRevenue: number;
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
                         <div>
                             <h1 className="text-2xl font-bold">Super Admin Dashboard</h1>
                             <p className="text-sm text-muted-foreground">
-                                {BRAND_CONFIG.product.name} Platform Management
+                                {brand.product.name} Platform Management
                             </p>
                         </div>
                         <div className="flex items-center gap-4">

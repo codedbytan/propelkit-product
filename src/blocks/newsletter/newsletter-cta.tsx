@@ -19,12 +19,12 @@ export function NewsletterCTA() {
     try {
       // Handle newsletter signup
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       toast({
         title: `Thanks for subscribing to ${brand.name}!`,
         description: "You'll receive our weekly newsletter.",
       });
-      
+
       setEmail('');
     } catch (error) {
       toast({
@@ -44,11 +44,11 @@ export function NewsletterCTA() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
             <Mail className="h-8 w-8 text-primary" />
           </div>
-          
+
           <h2 className="text-3xl md:text-4xl font-bold">
             Subscribe to our newsletter
           </h2>
-          
+
           <p className="text-lg text-muted-foreground">
             Get the latest updates, tutorials, and tips delivered to your inbox.
           </p>

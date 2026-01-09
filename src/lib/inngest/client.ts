@@ -1,11 +1,11 @@
 // src/lib/inngest/client.ts
 import { Inngest } from "inngest";
-import { BRAND_CONFIG } from "@/config/brand";
+import { brand } from "@/config/brand";  // ✅ FIXED: Changed from BRAND_CONFIG
 
 // ✅ Create Inngest client using centralized config
 export const inngest = new Inngest({
-    id: BRAND_CONFIG.inngest.appId,       // "propelkit-acme-prod"
-    name: BRAND_CONFIG.inngest.appName,   // "PropelKit Product"
+    id: brand.inngest.appId,       // ✅ FIXED: Changed from BRAND_CONFIG
+    name: brand.inngest.appName,   // ✅ FIXED: Changed from BRAND_CONFIG
     // Event key is injected by Inngest automatically in production
     // For local dev, set INNGEST_EVENT_KEY=test in .env.local
 });

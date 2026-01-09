@@ -28,7 +28,7 @@ export function HeroGradient({
       {/* Gradient Orbs */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse delay-700" />
-      
+
       <div className="container relative z-10 px-4 py-20 md:py-32 mx-auto">
         <div className="max-w-4xl mx-auto text-center space-y-8">
           {/* Badge */}
@@ -54,18 +54,18 @@ export function HeroGradient({
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={onPrimaryClick}
               className="group"
             >
               {primaryCTA}
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
-            
-            <Button 
-              size="lg" 
-              variant="outline" 
+
+            <Button
+              size="lg"
+              variant="outline"
               onClick={onSecondaryClick}
               className="group"
             >

@@ -16,7 +16,7 @@ export function FooterMinimal() {
               {brand.tagline}
             </p>
           </div>
-          
+
           <div>
             <h3 className="font-semibold mb-4">Product</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -25,7 +25,7 @@ export function FooterMinimal() {
               <li><Link href="/docs" className="hover:text-foreground">Docs</Link></li>
             </ul>
           </div>
-          
+
           <div>
             <h3 className="font-semibold mb-4">Company</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -33,7 +33,7 @@ export function FooterMinimal() {
               <li><Link href="/contact" className="hover:text-foreground">Contact</Link></li>
             </ul>
           </div>
-          
+
           <div>
             <h3 className="font-semibold mb-4">Legal</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -42,7 +42,7 @@ export function FooterMinimal() {
             </ul>
           </div>
         </div>
-        
+
         <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
           © {currentYear} {brand.company}. All rights reserved.
         </div>

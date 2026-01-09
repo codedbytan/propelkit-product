@@ -20,7 +20,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BRAND_CONFIG, formatPrice } from "@/config/brand";
+import { brand, formatPrice } from "@/config/brand";  // ✅ FIXED
 
 interface Payment {
     id: string;

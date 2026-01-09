@@ -72,9 +72,9 @@ const defaultTiers: PricingTier[] = [
   },
 ];
 
-export function PricingBasic({ 
+export function PricingBasic({
   tiers = defaultTiers,
-  onSelectPlan 
+  onSelectPlan
 }: PricingBasicProps) {
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
 

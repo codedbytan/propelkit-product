@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { generateInvoicePDF } from "@/lib/invoice-generator";
 import { GSTCalculator } from "@/lib/gst-engine";
 import { Resend } from "resend";
-import { BRAND_CONFIG, formatPrice, generateInvoiceNumber } from "@/config/brand";
+import { brand, formatPrice, generateInvoiceNumber } from "@/config/brand";  // ✅ FIXED
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -43,18 +43,18 @@ export const handleLicensePurchase = inngest.createFunction(
         const invoice = await step.run("generate-invoice-pdf", async () => {
             // Calculate GST using brand config
             const calculator = new GSTCalculator({
-                sellerStateCode: BRAND_CONFIG.company.address.stateCode,
-                sellerGSTIN: BRAND_CONFIG.company.gstin,
+                sellerStateCode: brand.company.address.stateCode,  // ✅ FIXED
+                sellerGSTIN: brand.company.gstin,  // ✅ FIXED
             });
 
             const taxResult = calculator.calculate(
                 {
-                    stateCode: BRAND_CONFIG.company.address.stateCode, // Can be customized per customer
+                    stateCode: brand.company.address.stateCode,  // ✅ FIXED
                     gstin: undefined
                 },
                 [{
-                    description: `${BRAND_CONFIG.product.name} ${planKey}`,
-                    sacCode: BRAND_CONFIG.invoice.sacCode,
+                    description: `${brand.product.name} ${planKey}`,  // ✅ FIXED
+                    sacCode: brand.invoice.sacCode,  // ✅ FIXED
                     unitPrice: amount / 100,
                     quantity: 1
                 }]
@@ -67,7 +67,7 @@ export const handleLicensePurchase = inngest.createFunction(
                 customerName: email.split('@')[0],
                 customerGSTIN: undefined,
                 taxResult,
-                description: `${BRAND_CONFIG.product.name} ${planKey} - Lifetime License`
+                description: `${brand.product.name} ${planKey} - Lifetime License`  // ✅ FIXED
             });
 
             // Store invoice record in database
@@ -95,9 +95,9 @@ export const handleLicensePurchase = inngest.createFunction(
             const pdfBuffer = Buffer.from(invoice.pdfBase64, 'base64');
 
             await resend.emails.send({
-                from: BRAND_CONFIG.email.fromSupport,
+                from: brand.email.fromSupport,  // ✅ FIXED
                 to: email,
-                subject: `🎉 Your ${BRAND_CONFIG.product.name} License is Ready!`,
+                subject: `🎉 Your ${brand.product.name} License is Ready!`,  // ✅ FIXED
                 html: `
                     <!DOCTYPE html>
                     <html>
@@ -124,7 +124,7 @@ export const handleLicensePurchase = inngest.createFunction(
                             </ol>
                             
                             <div style="text-align: center; margin: 30px 0;">
-                                <a href="${BRAND_CONFIG.product.url}/dashboard" 
+                                <a href="${brand.product.url}/dashboard"   
                                    style="display: inline-block; background: #000; color: #fff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                                     Download Now
                                 </a>
@@ -137,8 +137,8 @@ export const handleLicensePurchase = inngest.createFunction(
                             <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
                             
                             <p style="font-size: 12px; color: #999; text-align: center;">
-                                Need help? Contact us at ${BRAND_CONFIG.contact.email}<br>
-                                © ${new Date().getFullYear()} ${BRAND_CONFIG.company.legalName}. All rights reserved.
+                                Need help? Contact us at ${brand.contact.email}<br>
+                                © ${new Date().getFullYear()} ${brand.company.legalName}. All rights reserved.
                             </p>
                         </div>
                     </body>
@@ -146,7 +146,7 @@ export const handleLicensePurchase = inngest.createFunction(
                 `,
                 attachments: [
                     {
-                        filename: `${BRAND_CONFIG.product.name}-Invoice-${licenseId.slice(-8)}.pdf`,
+                        filename: `${brand.product.name}-Invoice-${licenseId.slice(-8)}.pdf`,  // ✅ FIXED
                         content: pdfBuffer,
                     },
                 ],
@@ -164,7 +164,7 @@ export const handleLicensePurchase = inngest.createFunction(
                     license_id: licenseId,
                     plan: planKey,
                     amount: amount / 100,
-                    product: BRAND_CONFIG.product.name
+                    product: brand.product.name  // ✅ FIXED
                 }
             });
 

@@ -1,7 +1,7 @@
 // src/lib/inngest/functions/onboarding.ts
 import { inngest } from "../client";
 import { Resend } from "resend";
-import { BRAND_CONFIG } from "@/config/brand";
+import { brand } from "@/config/brand";  // ✅ FIXED
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -24,22 +24,22 @@ export const onboardingSequence = inngest.createFunction(
             console.log(`📧 Day 1: Sending welcome email to ${email}`);
 
             await resend.emails.send({
-                from: BRAND_CONFIG.email.fromSupport,
+                from: brand.email.fromSupport,  // ✅ FIXED
                 to: email,
-                subject: `Welcome to ${BRAND_CONFIG.product.name}! 🚀`,
+                subject: `Welcome to ${brand.product.name}! 🚀`,  // ✅ FIXED
                 html: `
                     <!DOCTYPE html>
                     <html>
                     <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                         <div style="background: linear-gradient(135deg, #FACC15 0%, #F59E0B 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                            <h1 style="color: #000; margin: 0;">Welcome to ${BRAND_CONFIG.product.name}! 🚀</h1>
+                            <h1 style="color: #000; margin: 0;">Welcome to ${brand.product.name}! 🚀</h1>
                         </div>
                         
                         <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
                             <p style="font-size: 16px;">Hi ${name || "there"},</p>
                             
                             <p style="font-size: 16px;">
-                                Thanks for signing up! You're now part of the ${BRAND_CONFIG.product.name} community.
+                                Thanks for signing up! You're now part of the ${brand.product.name} community.
                             </p>
                             
                             <h3 style="color: #000;">🎯 Quick Start Guide:</h3>
@@ -50,14 +50,14 @@ export const onboardingSequence = inngest.createFunction(
                             </ol>
                             
                             <div style="text-align: center; margin: 30px 0;">
-                                <a href="${BRAND_CONFIG.product.url}/dashboard" 
+                                <a href="${brand.product.url}/dashboard" 
                                    style="display: inline-block; background: #000; color: #fff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                                     Go to Dashboard
                                 </a>
                             </div>
                             
                             <p style="font-size: 14px; color: #6b7280;">
-                                Need help? Reply to this email or visit our <a href="${BRAND_CONFIG.social.discord}">Discord community</a>
+                                Need help? Reply to this email or visit our <a href="${brand.social.discord}">Discord community</a>
                             </p>
                         </div>
                     </body>
@@ -74,18 +74,18 @@ export const onboardingSequence = inngest.createFunction(
             console.log(`📧 Day 3: Sending tips email to ${email}`);
 
             await resend.emails.send({
-                from: BRAND_CONFIG.email.fromSupport,
+                from: brand.email.fromSupport,  // ✅ FIXED
                 to: email,
-                subject: `💡 Pro Tips to Ship Faster with ${BRAND_CONFIG.product.name}`,
+                subject: `💡 Pro Tips to Ship Faster with ${brand.product.name}`,  // ✅ FIXED
                 html: `
                     <!DOCTYPE html>
                     <html>
                     <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <h1 style="color: #000;">Quick Tips to Get the Most Out of ${BRAND_CONFIG.product.name}</h1>
+                        <h1 style="color: #000;">Quick Tips to Get the Most Out of ${brand.product.name}</h1>
                         
                         <p style="font-size: 16px;">Hi ${name || "there"},</p>
                         
-                        <p style="font-size: 16px;">Here are 3 things successful founders do with ${BRAND_CONFIG.product.name}:</p>
+                        <p style="font-size: 16px;">Here are 3 things successful founders do with ${brand.product.name}:</p>
                         
                         <ol style="font-size: 16px; line-height: 1.8;">
                             <li><strong>Customize the branding first</strong> - Replace logos, colors, and text to make it yours</li>
@@ -108,7 +108,7 @@ export const onboardingSequence = inngest.createFunction(
             console.log(`📧 Day 7: Sending check-in email to ${email}`);
 
             await resend.emails.send({
-                from: BRAND_CONFIG.email.fromSupport,
+                from: brand.email.fromSupport,  // ✅ FIXED
                 to: email,
                 subject: "🎯 How's Your SaaS Coming Along?",
                 html: `
@@ -120,7 +120,7 @@ export const onboardingSequence = inngest.createFunction(
                         <p style="font-size: 16px;">Hi ${name || "there"},</p>
                         
                         <p style="font-size: 16px;">
-                            It's been a week since you joined ${BRAND_CONFIG.product.name}. How's your experience so far?
+                            It's been a week since you joined ${brand.product.name}. How's your experience so far?
                         </p>
                         
                         <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0;">
@@ -132,7 +132,7 @@ export const onboardingSequence = inngest.createFunction(
                         <p style="font-size: 16px;">Reply to this email - we read every response!</p>
                         
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="${BRAND_CONFIG.product.url}/pricing" 
+                            <a href="${brand.product.url}/pricing" 
                                style="display: inline-block; background: #000; color: #fff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                                 View Plans
                             </a>

@@ -20,12 +20,12 @@ export function FormContact() {
       const formData = new FormData(e.currentTarget);
       // Handle form submission
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
+
       toast({
         title: `Thanks for contacting ${brand.name}!`,
         description: "We'll get back to you soon.",
       });
-      
+
       e.currentTarget.reset();
     } catch (error) {
       toast({
@@ -44,17 +44,17 @@ export function FormContact() {
         <Label htmlFor="name">Name</Label>
         <Input id="name" name="name" required />
       </div>
-      
+
       <div>
         <Label htmlFor="email">Email</Label>
         <Input id="email" name="email" type="email" required />
       </div>
-      
+
       <div>
         <Label htmlFor="message">Message</Label>
         <Textarea id="message" name="message" rows={5} required />
       </div>
-      
+
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? 'Sending...' : 'Send Message'}
       </Button>

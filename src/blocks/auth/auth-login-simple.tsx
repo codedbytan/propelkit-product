@@ -45,7 +45,7 @@ export function AuthLoginSimple() {
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" required />
             </div>
-            
+
             <div>
               <Label htmlFor="password">Password</Label>
               <Input id="password" type="password" required />
