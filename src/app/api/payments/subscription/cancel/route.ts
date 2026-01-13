@@ -2,8 +2,8 @@
 // ✅ NEW FILE - Add subscription cancellation
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { createClient } from "@/lib/supabase/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import Razorpay from "razorpay";
 import { z } from "zod";
 

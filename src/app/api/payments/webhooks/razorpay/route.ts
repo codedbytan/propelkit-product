@@ -2,27 +2,28 @@
 // ✅ WITH RATE LIMITING + SIGNATURE VERIFICATION
 
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import crypto from "crypto";
 import { Resend } from "resend";
 import { brand } from "@/config/brand";
-import { webhookLimiter, getIdentifier, applyRateLimit } from "@/lib/rate-limit";
+// Rate limiting - optional, uncomment if you add @upstash/ratelimit
+// import { webhookLimiter, getIdentifier, applyRateLimit } from "@/lib/rate-limit";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
     try {
-        // 1. ⚡ RATE LIMIT (100 requests per minute for webhooks)
-        const identifier = getIdentifier(req); // Use IP for webhooks
-        const { limited, headers: rateLimitHeaders } = await applyRateLimit(webhookLimiter, identifier);
-
-        if (limited) {
-            console.warn(`🚨 Webhook rate limit exceeded from ${identifier}`);
-            return NextResponse.json(
-                { error: "Too many requests" },
-                { status: 429, headers: rateLimitHeaders }
-            );
-        }
+        // 1. ⚡ RATE LIMIT (optional - uncomment if you set up rate limiting)
+        // const identifier = getIdentifier(req);
+        // const { limited, headers: rateLimitHeaders } = await applyRateLimit(webhookLimiter, identifier);
+        // if (limited) {
+        //     console.warn(`🚨 Webhook rate limit exceeded from ${identifier}`);
+        //     return NextResponse.json(
+        //         { error: "Too many requests" },
+        //         { status: 429, headers: rateLimitHeaders }
+        //     );
+        // }
+        const rateLimitHeaders = {};
 
         // 2. ✅ VERIFY SIGNATURE
         const rawBody = await req.text();

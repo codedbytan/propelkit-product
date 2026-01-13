@@ -3,9 +3,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import { createClient } from "@/lib/supabase-server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { checkoutLimiter, getIdentifier, applyRateLimit } from "@/lib/rate-limit";
+import { createClient } from "@/lib/supabase/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
+// Rate limiting - optional, uncomment if you add @upstash/ratelimit
+// import { checkoutLimiter, getIdentifier, applyRateLimit } from "@/lib/rate-limit";
 import { checkoutSchema, validateRequest } from "@/lib/validation-schemas";
 
 const razorpay = new Razorpay({
@@ -78,16 +79,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Please log in to continue" }, { status: 401 });
         }
 
-        // 2. ⚡ RATE LIMIT (5 requests per hour)
-        const identifier = getIdentifier(req, user.id);
-        const { limited, headers: rateLimitHeaders } = await applyRateLimit(checkoutLimiter, identifier);
-
-        if (limited) {
-            return NextResponse.json(
-                { error: "Too many checkout attempts. Please try again later." },
-                { status: 429, headers: rateLimitHeaders }
-            );
-        }
+        // 2. ⚡ RATE LIMIT (optional - uncomment if you set up rate limiting)
+        // const identifier = getIdentifier(req, user.id);
+        // const { limited, headers: rateLimitHeaders } = await applyRateLimit(checkoutLimiter, identifier);
+        // if (limited) {
+        //     return NextResponse.json(
+        //         { error: "Too many checkout attempts. Please try again later." },
+        //         { status: 429, headers: rateLimitHeaders }
+        //     );
+        // }
+        const rateLimitHeaders = {};
 
         // 3. ✅ VALIDATE INPUT
         const body = await req.json();

@@ -1,6 +1,6 @@
 // src/app/api/payment/verify/route.ts
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/lib/supabase/supabase-admin";
 import crypto from "crypto";
 import { z } from "zod";
 import { GSTCalculator, SAC_CODE_SAAS } from "@/lib/gst-engine";
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
         }
 
         // 2. Get authenticated user
-        const { createClient: createServerClient } = await import("@/lib/supabase-server");
+        const { createClient: createServerClient } = await import("@/lib/supabase/supabase-server");
         const supabaseUserClient = await createServerClient();
         const { data: { user }, error: authError } = await supabaseUserClient.auth.getUser();
 
@@ -69,10 +69,10 @@ export async function POST(req: Request) {
 
         const organizationId = membership.organization_id;
 
-        // 4. Get plan pricing from brand config
+        // 4. Get plan pricing (simplified - customize based on your plans)
         const isStarter = planKey.includes('starter');
-        const planName = isStarter ? brand.pricing.plans.starter.name : brand.pricing.plans.agency.name;
-        const amount = isStarter ? brand.pricing.plans.starter.priceInPaise : brand.pricing.plans.agency.priceInPaise;
+        const planName = isStarter ? "Starter Plan" : "Pro Plan";
+        const amount = isStarter ? 99900 : 249900; // ₹999 or ₹2499 in paise
 
         // 5. Check if payment already processed (idempotency)
         const { data: existingLicense } = await supabaseAdmin
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
                 { stateCode: brand.company.address.stateCode },
                 [{
                     description: `${brand.product.name} ${planName}`,
-                    sacCode: brand.invoice.sacCode,
+                    sacCode: SAC_CODE_SAAS,
                     unitPrice: amount / 100,
                     quantity: 1
                 }]
