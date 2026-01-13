@@ -1,0 +1,17 @@
+/* Neutral Color Scheme */
+:root {
+  --color-primary: 0 0% 15%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 0 0% 25%;
+  --color-accent-foreground: 0 0% 100%;
+  --gradient-from: #374151;
+  --gradient-to: #1f2937;
+  --gradient-via: #111827;
+}
+
+.dark {
+  --color-primary: 0 0% 98%;
+  --color-primary-foreground: 222.2 47.4% 11.2%;
+  --color-accent: 0 0% 90%;
+  --color-accent-foreground: 222.2 47.4% 11.2%;
+}

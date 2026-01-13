@@ -1,0 +1,17 @@
+/* Blue Color Scheme */
+:root {
+  --color-primary: 217 91% 60%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 221 83% 53%;
+  --color-accent-foreground: 0 0% 100%;
+  --gradient-from: #3b82f6;
+  --gradient-to: #1d4ed8;
+  --gradient-via: #2563eb;
+}
+
+.dark {
+  --color-primary: 217 91% 60%;
+  --color-primary-foreground: 222.2 47.4% 11.2%;
+  --color-accent: 221 83% 53%;
+  --color-accent-foreground: 210 40% 98%;
+}

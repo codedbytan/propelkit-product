@@ -1,0 +1,17 @@
+/* Green Color Scheme */
+:root {
+  --color-primary: 142 71% 45%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 158 64% 52%;
+  --color-accent-foreground: 0 0% 100%;
+  --gradient-from: #22c55e;
+  --gradient-to: #16a34a;
+  --gradient-via: #15803d;
+}
+
+.dark {
+  --color-primary: 142 71% 45%;
+  --color-primary-foreground: 222.2 47.4% 11.2%;
+  --color-accent: 158 64% 52%;
+  --color-accent-foreground: 210 40% 98%;
+}

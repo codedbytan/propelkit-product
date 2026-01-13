@@ -1,0 +1,17 @@
+/* Orange Color Scheme */
+:root {
+  --color-primary: 25 95% 53%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 21 90% 48%;
+  --color-accent-foreground: 0 0% 100%;
+  --gradient-from: #f97316;
+  --gradient-to: #ea580c;
+  --gradient-via: #c2410c;
+}
+
+.dark {
+  --color-primary: 25 95% 53%;
+  --color-primary-foreground: 222.2 47.4% 11.2%;
+  --color-accent: 21 90% 48%;
+  --color-accent-foreground: 210 40% 98%;
+}

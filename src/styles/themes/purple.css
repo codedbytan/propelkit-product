@@ -1,0 +1,17 @@
+/* Purple Color Scheme */
+:root {
+  --color-primary: 271 81% 56%;
+  --color-primary-foreground: 0 0% 100%;
+  --color-accent: 262 83% 58%;
+  --color-accent-foreground: 0 0% 100%;
+  --gradient-from: #8b5cf6;
+  --gradient-to: #6d28d9;
+  --gradient-via: #7c3aed;
+}
+
+.dark {
+  --color-primary: 271 81% 56%;
+  --color-primary-foreground: 222.2 47.4% 11.2%;
+  --color-accent: 262 83% 58%;
+  --color-accent-foreground: 210 40% 98%;
+}
