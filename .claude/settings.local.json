@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(printf:*)",
+      "Bash(node scripts/setup-blueprint.js:*)",
+      "Bash(node:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx next dev)",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

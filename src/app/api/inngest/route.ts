@@ -17,11 +17,4 @@ const handler = serve({
     // Don't pass eventKey here - it's used in the client
 });
 
-// Disable Next.js body parsing for Inngest
-export const config = {
-    api: {
-        bodyParser: false,
-    },
-};
-
 export { handler as GET, handler as POST, handler as PUT };
